@@ -145,6 +145,82 @@ export const filterPayments = (txns: Txn[], people: Person[], q: string): Txn[] 
     .sort((a, b) => (b.date || '').localeCompare(a.date || '') || b.id - a.id);
 };
 
+/* ---- v6: payat invitations + reminders ---- */
+
+export type Invitation = {
+  id: number;
+  hostId: number;
+  date: string;
+  note: string;
+  status: string; // 'pending' | 'paid' | 'removed'
+  notifIds: string; // JSON array of scheduled notification ids
+  paidTxnId: number | null;
+};
+
+const pad2 = (n: number) => String(n).padStart(2, '0');
+const isoShift = (dateIso: string, days: number): string => {
+  const d = new Date(dateIso + 'T00:00');
+  d.setDate(d.getDate() + days);
+  return `${d.getFullYear()}-${pad2(d.getMonth() + 1)}-${pad2(d.getDate())}`;
+};
+
+export type ReminderSpec = { date: string; kind: 'before' | 'day0' | 'after' };
+
+/* Reminder plan for one invitation: one the day before, then daily from the
+   payat date for 14 days. Past dates are filtered at scheduling time. */
+export const reminderDates = (dateIso: string, maxDaily = 14): ReminderSpec[] => {
+  const out: ReminderSpec[] = [{ date: isoShift(dateIso, -1), kind: 'before' }];
+  for (let i = 0; i < maxDaily; i++) {
+    out.push({ date: isoShift(dateIso, i), kind: i === 0 ? 'day0' : 'after' });
+  }
+  return out;
+};
+
+export type RelativeLabel =
+  | { kind: 'today' }
+  | { kind: 'tomorrow' }
+  | { kind: 'left'; d: number }
+  | { kind: 'overdue'; d: number };
+
+export const relativeInvLabel = (dateIso: string, todayIso: string): RelativeLabel => {
+  const diff = Math.round((+new Date(dateIso + 'T00:00') - +new Date(todayIso + 'T00:00')) / 864e5);
+  if (diff === 0) return { kind: 'today' };
+  if (diff === 1) return { kind: 'tomorrow' };
+  if (diff > 1) return { kind: 'left', d: diff };
+  return { kind: 'overdue', d: -diff };
+};
+
+export const parseNotifIds = (json: string | null | undefined): string[] => {
+  try {
+    const v = JSON.parse(json || '[]');
+    return Array.isArray(v) ? v.map(String) : [];
+  } catch {
+    return [];
+  }
+};
+
+/* Closing an invitation (paid or removed): every scheduled reminder must be
+   cancelled and the stored id list emptied. */
+export const closeInvitation = (
+  inv: Invitation,
+  status: 'paid' | 'removed',
+  paidTxnId: number | null = null
+): { updated: Invitation; cancelIds: string[] } => ({
+  updated: { ...inv, status, notifIds: '[]', paidTxnId: status === 'paid' ? paidTxnId : inv.paidTxnId },
+  cancelIds: parseNotifIds(inv.notifIds),
+});
+
+export const pendingInvitations = (invs: Invitation[]): Invitation[] =>
+  invs.filter((i) => i.status === 'pending').sort((a, b) => a.date.localeCompare(b.date) || a.id - b.id);
+
+/* Most urgent pending invitation, but only when overdue or within 7 days. */
+export const urgentInvitation = (invs: Invitation[], todayIso: string): Invitation | null => {
+  const first = pendingInvitations(invs)[0];
+  if (!first) return null;
+  const rel = relativeInvLabel(first.date, todayIso);
+  return rel.kind === 'left' && rel.d > 7 ? null : first;
+};
+
 /* ---- v5: balance bubbles ---- */
 
 export type BubbleItem = { id: number; name: string; b: number; d: number };
@@ -248,12 +324,22 @@ export type Backup = {
   people: Person[];
   events: PayatEvent[];
   txns: Txn[];
+  invitations: Invitation[];
 };
 
-/* Same shape and field order as the PWA's doExport() so files move freely
-   between the web app and this app. */
-export const serializeBackup = (people: Person[], events: PayatEvent[], txns: Txn[]): string =>
-  JSON.stringify({ app: 'payat-book', version: 2, exported: new Date().toISOString(), people, events, txns }, null, 1);
+/* v3 payload: v2 shape + invitations appended last, so the PWA's importer
+   (which only reads people/events/txns) still accepts these files. */
+export const serializeBackup = (
+  people: Person[],
+  events: PayatEvent[],
+  txns: Txn[],
+  invitations: Invitation[] = []
+): string =>
+  JSON.stringify(
+    { app: 'payat-book', version: 3, exported: new Date().toISOString(), people, events, txns, invitations },
+    null,
+    1
+  );
 
 export const parseBackup = (raw: string): Backup | null => {
   try {
@@ -284,6 +370,16 @@ export const parseBackup = (raw: string): Backup | null => {
         amount: Number(x.amount),
         date: x.date ?? null,
         note: String(x.note ?? ''),
+      })),
+      /* v2 files have no invitations — accept them without error */
+      invitations: (Array.isArray(d.invitations) ? (d.invitations as any[]) : []).map((i) => ({
+        id: Number(i.id),
+        hostId: Number(i.hostId),
+        date: String(i.date ?? ''),
+        note: String(i.note ?? ''),
+        status: i.status === 'paid' || i.status === 'removed' ? i.status : 'pending',
+        notifIds: '[]', // ids from another install are meaningless here
+        paidTxnId: i.paidTxnId == null ? null : Number(i.paidTxnId),
       })),
     };
   } catch {

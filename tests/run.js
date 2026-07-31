@@ -20,6 +20,12 @@ const {
   packBubbles,
   waitingLongest,
   daysSince,
+  reminderDates,
+  relativeInvLabel,
+  parseNotifIds,
+  closeInvitation,
+  pendingInvitations,
+  urgentInvitation,
 } = require('../.testbuild/lib');
 const { buildShareText } = require('../.testbuild/share');
 
@@ -72,10 +78,11 @@ ok('backup round-trip preserves data', () => {
   const parsed = parseBackup(serializeBackup(people, events, txns));
   assert.ok(parsed);
   assert.strictEqual(parsed.app, 'payat-book');
-  assert.strictEqual(parsed.version, 2);
+  assert.strictEqual(parsed.version, 3);
   assert.deepStrictEqual(parsed.people, people);
   assert.deepStrictEqual(parsed.events, events);
   assert.deepStrictEqual(parsed.txns, txns);
+  assert.deepStrictEqual(parsed.invitations, []);
 });
 
 ok('PWA-format backup imports', () => {
@@ -280,14 +287,14 @@ ok('filterPayments: matches person name and note, case-insensitive', () => {
 
 /* ---------- v4: backup payload format ---------- */
 
-ok('backup payload keeps v2 shape and key order', () => {
+ok('backup payload keeps v2 key order with invitations appended (v3)', () => {
   const raw = serializeBackup(people, events, txns);
   const d = JSON.parse(raw);
-  assert.deepStrictEqual(Object.keys(d), ['app', 'version', 'exported', 'people', 'events', 'txns']);
+  assert.deepStrictEqual(Object.keys(d), ['app', 'version', 'exported', 'people', 'events', 'txns', 'invitations']);
   assert.strictEqual(d.app, 'payat-book');
-  assert.strictEqual(d.version, 2);
+  assert.strictEqual(d.version, 3);
   assert.ok(!Number.isNaN(Date.parse(d.exported)), 'exported must be an ISO timestamp');
-  // and the PWA-side validation (app check + people array) accepts it
+  // the PWA-side validation (app check + people array) still accepts it
   assert.ok(d.app === 'payat-book' && Array.isArray(d.people));
 });
 
@@ -432,6 +439,98 @@ ok('daysSince', () => {
   assert.strictEqual(daysSince('2026-07-01', '2026-07-31'), 30);
   assert.strictEqual(daysSince('2026-07-31', '2026-07-31'), 0);
   assert.strictEqual(daysSince('2026-08-05', '2026-07-31'), 0); // future clamps to 0
+});
+
+/* ---------- v6: invitations + reminders ---------- */
+
+ok('reminderDates: day-before + 14 dailies with correct kinds', () => {
+  const r = reminderDates('2026-08-10');
+  assert.strictEqual(r.length, 15);
+  assert.deepStrictEqual(r[0], { date: '2026-08-09', kind: 'before' });
+  assert.deepStrictEqual(r[1], { date: '2026-08-10', kind: 'day0' });
+  assert.deepStrictEqual(r[2], { date: '2026-08-11', kind: 'after' });
+  assert.deepStrictEqual(r[14], { date: '2026-08-23', kind: 'after' });
+  assert.strictEqual(r.filter((x) => x.kind === 'after').length, 13);
+});
+
+ok('reminderDates: month boundary', () => {
+  const r = reminderDates('2026-03-01');
+  assert.strictEqual(r[0].date, '2026-02-28'); // 2026 not a leap year
+  assert.strictEqual(r[1].date, '2026-03-01');
+});
+
+ok('reminderDates: year boundary', () => {
+  const r = reminderDates('2026-01-01');
+  assert.strictEqual(r[0].date, '2025-12-31');
+  assert.strictEqual(r[14].date, '2026-01-14');
+  const r2 = reminderDates('2025-12-30');
+  assert.strictEqual(r2[14].date, '2026-01-12');
+});
+
+ok('relativeInvLabel: today/tomorrow/left/overdue', () => {
+  const T = '2026-07-31';
+  assert.deepStrictEqual(relativeInvLabel('2026-07-31', T), { kind: 'today' });
+  assert.deepStrictEqual(relativeInvLabel('2026-08-01', T), { kind: 'tomorrow' });
+  assert.deepStrictEqual(relativeInvLabel('2026-08-05', T), { kind: 'left', d: 5 });
+  assert.deepStrictEqual(relativeInvLabel('2026-07-28', T), { kind: 'overdue', d: 3 });
+});
+
+ok('parseNotifIds: valid, garbage, non-array', () => {
+  assert.deepStrictEqual(parseNotifIds('["a","b"]'), ['a', 'b']);
+  assert.deepStrictEqual(parseNotifIds(''), []);
+  assert.deepStrictEqual(parseNotifIds('not json'), []);
+  assert.deepStrictEqual(parseNotifIds('{"x":1}'), []);
+  assert.deepStrictEqual(parseNotifIds(null), []);
+});
+
+ok('closeInvitation: cancels all ids, clears list, links paid txn', () => {
+  const inv = { id: 1, hostId: 2, date: '2026-08-10', note: '', status: 'pending', notifIds: '["n1","n2","n3"]', paidTxnId: null };
+  const paid = closeInvitation(inv, 'paid', 42);
+  assert.deepStrictEqual(paid.cancelIds, ['n1', 'n2', 'n3']);
+  assert.strictEqual(paid.updated.status, 'paid');
+  assert.strictEqual(paid.updated.notifIds, '[]');
+  assert.strictEqual(paid.updated.paidTxnId, 42);
+  const removed = closeInvitation(inv, 'removed');
+  assert.strictEqual(removed.updated.status, 'removed');
+  assert.deepStrictEqual(removed.cancelIds, ['n1', 'n2', 'n3']);
+  assert.strictEqual(removed.updated.paidTxnId, null);
+});
+
+ok('pendingInvitations: only pending, date asc; urgentInvitation ≤7 days or overdue', () => {
+  const invs = [
+    { id: 1, hostId: 1, date: '2026-08-20', note: '', status: 'pending', notifIds: '[]', paidTxnId: null },
+    { id: 2, hostId: 2, date: '2026-08-02', note: '', status: 'pending', notifIds: '[]', paidTxnId: null },
+    { id: 3, hostId: 3, date: '2026-07-01', note: '', status: 'paid', notifIds: '[]', paidTxnId: 9 },
+    { id: 4, hostId: 4, date: '2026-07-25', note: '', status: 'removed', notifIds: '[]', paidTxnId: null },
+  ];
+  assert.deepStrictEqual(pendingInvitations(invs).map((i) => i.id), [2, 1]);
+  // nearest pending (Aug 2) is within 7 days of Jul 31 → urgent
+  assert.strictEqual(urgentInvitation(invs, '2026-07-31').id, 2);
+  // far future only → no urgent card
+  assert.strictEqual(urgentInvitation([invs[0]], '2026-07-31'), null);
+  // overdue → urgent
+  const over = [{ id: 5, hostId: 5, date: '2026-07-20', note: '', status: 'pending', notifIds: '[]', paidTxnId: null }];
+  assert.strictEqual(urgentInvitation(over, '2026-07-31').id, 5);
+  assert.strictEqual(urgentInvitation([], '2026-07-31'), null);
+});
+
+ok('backup v3 round-trip with invitations; v2 import stays valid', () => {
+  const invs = [
+    { id: 1, hostId: 1, date: '2026-08-10', note: 'wedding', status: 'pending', notifIds: '["x"]', paidTxnId: null },
+    { id: 2, hostId: 1, date: '2026-06-01', note: '', status: 'paid', notifIds: '[]', paidTxnId: 7 },
+  ];
+  const parsed = parseBackup(serializeBackup(people, events, txns, invs));
+  assert.ok(parsed);
+  assert.strictEqual(parsed.invitations.length, 2);
+  assert.strictEqual(parsed.invitations[0].status, 'pending');
+  assert.strictEqual(parsed.invitations[0].notifIds, '[]'); // foreign ids dropped on import
+  assert.strictEqual(parsed.invitations[1].paidTxnId, 7);
+  // v2 file (no invitations key) imports cleanly
+  const v2 = JSON.stringify({ app: 'payat-book', version: 2, exported: 'x', people, events, txns });
+  const p2 = parseBackup(v2);
+  assert.ok(p2);
+  assert.deepStrictEqual(p2.invitations, []);
+  assert.deepStrictEqual(p2.txns, txns);
 });
 
 console.log(`\n${n} checks passed`);

@@ -73,7 +73,20 @@ en:{
   bubblesTitle:"Balances at a glance",
   pendingLong:"Waiting the longest",
   daysAgo:"{d} days ago",
-  shareFor:"Account: {n}"
+  shareFor:"Account: {n}",
+  invitations:"Invitations", addInvitation:"Add invitation",
+  invHost:"Who is hosting?", invDate:"Payat date",
+  payNow:"Pay now", markPaid:"Mark as paid",
+  qMarkPaid:"Mark this invitation as paid?", qRemoveInv:"Remove this invitation?",
+  today:"Today", tomorrow:"Tomorrow", daysLeft:"{d} days left",
+  upcomingPayat:"Upcoming payat",
+  notifTomorrow:"Payat tomorrow — {n}", notifToday:"Payat today — {n}",
+  notifOverdue:"Payat pending — {n}", notifBody:"Don't forget to pay at the payat — {n}",
+  notifExplain:"Allow notifications so you never miss a payat you were invited to.",
+  notifOff:"Reminders are off — allow notifications in phone settings.",
+  notifWebHint:"Reminders work in the phone app.",
+  about:"About", developedBy:"Developed by {n}",
+  contactWA:"Message on WhatsApp", contactEmail:"Send email"
 },
 ml:{
   tabBook:"ബുക്ക്", tabPeople:"ആളുകൾ", tabPayatts:"പയറ്റുകൾ",
@@ -145,7 +158,20 @@ ml:{
   bubblesTitle:"ബാലൻസ് ഒറ്റനോട്ടത്തിൽ",
   pendingLong:"കൂടുതൽ നാളായി ബാക്കിയുള്ളവർ",
   daysAgo:"{d} ദിവസം മുൻപ്",
-  shareFor:"കണക്ക്: {n}"
+  shareFor:"കണക്ക്: {n}",
+  invitations:"ക്ഷണങ്ങൾ", addInvitation:"ക്ഷണം ചേർക്കുക",
+  invHost:"ആരാണ് പയറ്റ് നടത്തുന്നത്?", invDate:"പയറ്റ് തീയതി",
+  payNow:"ഇപ്പോൾ കൊടുക്കുക", markPaid:"കൊടുത്തു എന്ന് അടയാളപ്പെടുത്തുക",
+  qMarkPaid:"ഈ ക്ഷണം കൊടുത്തതായി അടയാളപ്പെടുത്തണോ?", qRemoveInv:"ഈ ക്ഷണം ഒഴിവാക്കണോ?",
+  today:"ഇന്ന്", tomorrow:"നാളെ", daysLeft:"{d} ദിവസം ബാക്കി",
+  upcomingPayat:"വരാനുള്ള പയറ്റ്",
+  notifTomorrow:"നാളെ പയറ്റ് — {n}", notifToday:"ഇന്ന് പയറ്റ് — {n}",
+  notifOverdue:"പയറ്റ് ബാക്കി — {n}", notifBody:"പയറ്റിന് കൊടുക്കാൻ മറക്കരുത് — {n}",
+  notifExplain:"ക്ഷണിച്ച പയറ്റ് മറക്കാതിരിക്കാൻ നോട്ടിഫിക്കേഷൻ അനുവദിക്കുക.",
+  notifOff:"റിമൈൻഡർ ഓഫാണ് — ഫോൺ സെറ്റിംഗ്സിൽ നോട്ടിഫിക്കേഷൻ അനുവദിക്കുക.",
+  notifWebHint:"റിമൈൻഡർ ഫോൺ ആപ്പിൽ പ്രവർത്തിക്കും.",
+  about:"ആപ്പിനെക്കുറിച്ച്", developedBy:"നിർമ്മിച്ചത്: {n}",
+  contactWA:"വാട്സ്ആപ്പിൽ മെസേജ് ചെയ്യുക", contactEmail:"ഇമെയിൽ അയയ്ക്കുക"
 }};
 
 export const tFor = (lang: Lang) => (k: string): string =>
