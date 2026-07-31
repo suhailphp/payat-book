@@ -50,9 +50,19 @@ en:{
   qDelEntry:"Delete this entry?", qDelPayat:"Delete this payat and its entries?",
   qDelPerson:"Delete this person and all their entries? This cannot be undone.",
   qRestore:"Restore backup with {p} people and {t} entries? Current data will be replaced.",
-  shareTitle:"Payat Book — {n}", shareYouGave:"You gave", shareIGave:"I gave",
+  shareTitle:"Payat Book — {n}", shareTitleOwner:"{n} — Payat Book", shareYouGave:"You gave", shareIGave:"I gave",
   shareBalGive:"You have {a} to give.", shareBalMine:"I have {a} to give you.", shareBalZero:"Our balance is settled.",
-  storageT:"Storage unavailable", storageD:"Payat Book needs browser storage to keep your ledger. Please open it in Safari or Chrome (not private mode)."
+  storageT:"Storage unavailable", storageD:"Payat Book needs browser storage to keep your ledger. Please open it in Safari or Chrome (not private mode).",
+  tabPayments:"Payments",
+  recentPayments:"Recent payments", allPayments:"All payments",
+  searchPayments:"Search payments…", searchPayatts:"Search payatts…",
+  emptyPayT:"No payments yet", emptyPayD:"What you give at others' payatts shows here.",
+  welcome:"Welcome to Payat Book", whatsYourName:"What's your name?",
+  nameHint:"Shown on your book and in WhatsApp statements.", getStarted:"Start",
+  yourName:"Your name", greeting:"Salam, {n}",
+  thisMonth:"This month", statReceived:"Received", statGiven:"Given",
+  last6Months:"Last 6 months",
+  topToReceive:"To receive — top", topToGive:"To give — top"
 },
 ml:{
   tabBook:"ബുക്ക്", tabPeople:"ആളുകൾ", tabPayatts:"പയറ്റുകൾ",
@@ -101,9 +111,19 @@ ml:{
   qDelEntry:"ഈ എൻട്രി ഒഴിവാക്കണോ?", qDelPayat:"ഈ പയറ്റും അതിലെ എൻട്രികളും ഒഴിവാക്കണോ?",
   qDelPerson:"ഈ ആളെയും എല്ലാ എൻട്രികളും ഒഴിവാക്കണോ? തിരിച്ചെടുക്കാൻ കഴിയില്ല.",
   qRestore:"{p} ആളുകളും {t} എൻട്രികളും ഉള്ള ബാക്കപ്പ് തിരിച്ചെടുക്കണോ? ഇപ്പോഴുള്ള ഡാറ്റ മാറും.",
-  shareTitle:"പയറ്റ് ബുക്ക് — {n}", shareYouGave:"നിങ്ങൾ തന്നു", shareIGave:"ഞാൻ തന്നു",
+  shareTitle:"പയറ്റ് ബുക്ക് — {n}", shareTitleOwner:"{n} — പയറ്റ് ബുക്ക്", shareYouGave:"നിങ്ങൾ തന്നു", shareIGave:"ഞാൻ തന്നു",
   shareBalGive:"നിങ്ങൾ {a} തരാനുണ്ട്.", shareBalMine:"ഞാൻ {a} തരാനുണ്ട്.", shareBalZero:"ബാക്കി ഒന്നുമില്ല.",
-  storageT:"സ്റ്റോറേജ് ലഭ്യമല്ല", storageD:"ഡാറ്റ സൂക്ഷിക്കാൻ ബ്രൗസർ സ്റ്റോറേജ് വേണം. Safari അല്ലെങ്കിൽ Chrome-ൽ തുറക്കുക (private mode വേണ്ട)."
+  storageT:"സ്റ്റോറേജ് ലഭ്യമല്ല", storageD:"ഡാറ്റ സൂക്ഷിക്കാൻ ബ്രൗസർ സ്റ്റോറേജ് വേണം. Safari അല്ലെങ്കിൽ Chrome-ൽ തുറക്കുക (private mode വേണ്ട).",
+  tabPayments:"കൊടുത്തത്",
+  recentPayments:"പുതിയ പേയ്മെന്റുകൾ", allPayments:"എല്ലാ പേയ്മെന്റുകളും",
+  searchPayments:"പേയ്മെന്റ് തിരയുക…", searchPayatts:"പയറ്റ് തിരയുക…",
+  emptyPayT:"പേയ്മെന്റുകൾ ഇല്ല", emptyPayD:"മറ്റുള്ളവരുടെ പയറ്റിന് കൊടുക്കുന്നത് ഇവിടെ കാണാം.",
+  welcome:"പയറ്റ് ബുക്കിലേക്ക് സ്വാഗതം", whatsYourName:"നിങ്ങളുടെ പേര് എന്താണ്?",
+  nameHint:"നിങ്ങളുടെ ബുക്കിലും വാട്സ്ആപ്പ് സ്റ്റേറ്റ്മെന്റിലും കാണിക്കും.", getStarted:"തുടങ്ങുക",
+  yourName:"നിങ്ങളുടെ പേര്", greeting:"സലാം, {n}",
+  thisMonth:"ഈ മാസം", statReceived:"കിട്ടിയത്", statGiven:"കൊടുത്തത്",
+  last6Months:"കഴിഞ്ഞ 6 മാസം",
+  topToReceive:"കൂടുതൽ കിട്ടാനുള്ളവർ", topToGive:"കൂടുതൽ കൊടുക്കാനുള്ളവർ"
 }};
 
 export const tFor = (lang: Lang) => (k: string): string =>

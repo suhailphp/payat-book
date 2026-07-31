@@ -60,6 +60,69 @@ export const dstr = (iso: string | null | undefined, lang: string): string => {
 export const owedFor = (balance: number, dir: 'in' | 'out'): number =>
   dir === 'in' ? (balance > 0 ? balance : 0) : balance < 0 ? -balance : 0;
 
+/* ---- v3 dashboard / payments helpers ---- */
+
+export const monthKey = (iso: string | null | undefined): string => (iso || '').slice(0, 7);
+
+export type MonthBucket = { key: string; in: number; out: number };
+
+/* Last n calendar months ending at endIso's month, oldest first. */
+export const monthBuckets = (txns: Txn[], endIso: string, n = 6): MonthBucket[] => {
+  const [ey, em] = [Number(endIso.slice(0, 4)), Number(endIso.slice(5, 7))];
+  const buckets: MonthBucket[] = [];
+  for (let i = n - 1; i >= 0; i--) {
+    const m0 = em - 1 - i;
+    const y = ey + Math.floor(m0 / 12);
+    const m = ((m0 % 12) + 12) % 12;
+    buckets.push({ key: `${y}-${String(m + 1).padStart(2, '0')}`, in: 0, out: 0 });
+  }
+  const byKey = new Map(buckets.map((b) => [b.key, b]));
+  for (const x of txns) {
+    const b = byKey.get(monthKey(x.date));
+    if (b) b[x.dir === 'in' ? 'in' : 'out'] += x.amount;
+  }
+  return buckets;
+};
+
+export const monthTotals = (txns: Txn[], key: string): { in: number; out: number } =>
+  txns.reduce(
+    (s, x) => {
+      if (monthKey(x.date) === key) s[x.dir === 'in' ? 'in' : 'out'] += x.amount;
+      return s;
+    },
+    { in: 0, out: 0 }
+  );
+
+export type RankedBalance = { person: Person; b: number };
+
+/* Top positive balances (desc) and top negative balances (most owed first). */
+export const topBalances = (
+  people: Person[],
+  txns: Txn[],
+  n = 5
+): { receive: RankedBalance[]; give: RankedBalance[] } => {
+  const ranked = people.map((person) => ({ person, b: bal(txns, person.id) }));
+  return {
+    receive: ranked.filter((r) => r.b > 0).sort((a, b) => b.b - a.b).slice(0, n),
+    give: ranked.filter((r) => r.b < 0).sort((a, b) => a.b - b.b).slice(0, n),
+  };
+};
+
+/* All dir='out' txns newest first, filtered by person name or note. */
+export const filterPayments = (txns: Txn[], people: Person[], q: string): Txn[] => {
+  const needle = q.trim().toLowerCase();
+  const nameOf = new Map(people.map((p) => [p.id, p.name.toLowerCase()]));
+  return txns
+    .filter((x) => x.dir === 'out')
+    .filter(
+      (x) =>
+        !needle ||
+        (nameOf.get(x.personId) || '').includes(needle) ||
+        (x.note || '').toLowerCase().includes(needle)
+    )
+    .sort((a, b) => (b.date || '').localeCompare(a.date || '') || b.id - a.id);
+};
+
 export type Backup = {
   app: string;
   version: number;
