@@ -1,5 +1,5 @@
 import React from 'react';
-import Svg, { Circle, Path, Rect } from 'react-native-svg';
+import Svg, { Circle, G, Path, Rect } from 'react-native-svg';
 
 /* Line icons ported 1:1 from the PWA's ICON map. */
 
@@ -42,10 +42,16 @@ export const BackIcon = ({ size = 24, color = '#0A3F2A' }: P) => (
   </Svg>
 );
 
+/* Proper cog: toothed ring + hub (the old radial-spoke glyph read as a sun) */
 export const GearIcon = ({ size = 24, color = '#0A3F2A' }: P) => (
-  <Svg {...base(size)} fill="none" stroke={color} strokeWidth={1.9}>
-    <Circle cx={12} cy={12} r={3.2} />
-    <Path d="M12 3.5v2.2M12 18.3v2.2M20.5 12h-2.2M5.7 12H3.5M18 6l-1.6 1.6M7.6 16.4L6 18M18 18l-1.6-1.6M7.6 7.6L6 6" />
+  <Svg {...base(size)}>
+    {[0, 45, 90, 135, 180, 225, 270, 315].map((a) => (
+      <G key={a} rotation={a} origin="12, 12">
+        <Rect x={10.9} y={2.2} width={2.2} height={3.6} rx={1} fill={color} />
+      </G>
+    ))}
+    <Circle cx={12} cy={12} r={6.6} fill="none" stroke={color} strokeWidth={1.9} />
+    <Circle cx={12} cy={12} r={2.7} fill="none" stroke={color} strokeWidth={1.9} />
   </Svg>
 );
 

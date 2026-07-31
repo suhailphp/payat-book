@@ -537,6 +537,7 @@ ok('backup v3 round-trip with invitations; v2 import stays valid', () => {
 /* ---------- v6.1: phone display ---------- */
 
 ok('formatIntlPhone: UAE-style grouping, junk stripped, short passthrough', () => {
+  assert.strictEqual(formatIntlPhone('971527947237'), '+971 52 794 7237'); // the real author number
   assert.strictEqual(formatIntlPhone('971501234567'), '+971 50 123 4567');
   assert.strictEqual(formatIntlPhone('+971 50-123-4567'), '+971 50 123 4567');
   assert.strictEqual(formatIntlPhone('919876543210'), '+919 87 654 3210');

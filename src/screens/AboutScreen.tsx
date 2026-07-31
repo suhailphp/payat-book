@@ -12,7 +12,7 @@ import { ChevronRightIcon, EnvIcon, WaIcon } from '../components/Icons';
 import { StaggerIn } from '../components/anim';
 import { toast } from '../components/Toast';
 import { SettingsSheet } from '../sheets/SettingsSheet';
-import { AUTHOR_EMAIL, AUTHOR_WHATSAPP } from '../config/author';
+import { AUTHOR_EMAIL, AUTHOR_NAME, AUTHOR_WHATSAPP } from '../config/author';
 import type { RootNav } from '../nav';
 
 /* Short centered kasavu stripe (the header's double-gold motif as a divider) */
@@ -74,21 +74,21 @@ export function AboutScreen() {
         <StaggerIn index={0} style={{ alignItems: 'center' }}>
           <View style={st.portraitOuter}>
             <View style={st.portraitRing}>
-              <Image source={require('../../assets/author-bw.jpg')} style={st.portrait} resizeMode="cover" />
+              <Image source={require('../../assets/author-art.jpg')} style={st.portrait} resizeMode="cover" />
             </View>
           </View>
         </StaggerIn>
 
-        {/* identity (literal in both languages) */}
+        {/* identity: literal name, translated title */}
         <StaggerIn index={1} style={{ alignItems: 'center', marginTop: 18 }}>
           <Txt w={700} size={22}>
-            Suhail M
+            {AUTHOR_NAME}
           </Txt>
           <Txt size={15} color={C.inkSoft}>
-            Software Developer
+            {t('authorTitle')}
           </Txt>
-          <Txt size={14} color={C.inkSoft}>
-            Sharjah Police Science Academy
+          <Txt size={15} color={C.inkSoft} style={{ textAlign: 'center', maxWidth: 300, marginTop: 12 }}>
+            {t('authorCta')}
           </Txt>
         </StaggerIn>
 
