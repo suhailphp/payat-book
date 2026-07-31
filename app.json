@@ -1,0 +1,41 @@
+{
+  "expo": {
+    "name": "Payat Book",
+    "slug": "payat-book",
+    "version": "1.0.0",
+    "orientation": "portrait",
+    "icon": "./assets/icon.png",
+    "userInterfaceStyle": "light",
+    "backgroundColor": "#FAF7F0",
+    "ios": {
+      "supportsTablet": false,
+      "bundleIdentifier": "com.suhailphp.payatbook"
+    },
+    "android": {
+      "package": "com.suhailphp.payatbook",
+      "adaptiveIcon": {
+        "backgroundColor": "#FFFFFF",
+        "foregroundImage": "./assets/android-icon-foreground.png"
+      },
+      "predictiveBackGestureEnabled": false
+    },
+    "web": {
+      "favicon": "./assets/favicon.png"
+    },
+    "plugins": [
+      "expo-sqlite",
+      "expo-font",
+      [
+        "expo-splash-screen",
+        {
+          "image": "./assets/splash-icon.png",
+          "imageWidth": 200,
+          "resizeMode": "contain",
+          "backgroundColor": "#FAF7F0"
+        }
+      ],
+      "expo-sharing",
+      "@react-native-community/datetimepicker"
+    ]
+  }
+}
