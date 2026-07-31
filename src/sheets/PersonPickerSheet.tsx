@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from 'react';
-import { ScrollView, useWindowDimensions, View } from 'react-native';
+import { FlatList, useWindowDimensions, View } from 'react-native';
 import { useData } from '../data';
 import { bal } from '../lib';
 import { C } from '../theme';
@@ -35,28 +35,29 @@ export function PersonPickerSheet({
     .sort((a, b) => a.name.localeCompare(b.name));
 
   return (
-    <Sheet visible={visible} onClose={onClose} title={title}>
+    <Sheet visible={visible} onClose={onClose} title={title} scrollable={false}>
       <View style={{ paddingBottom: 10 }}>
         <SearchInput value={q} onChangeText={setQ} placeholder={t('searchName')} autoCorrect={false} />
       </View>
       <View style={{ borderWidth: 1, borderColor: C.line, borderRadius: 12, overflow: 'hidden' }}>
-        <ScrollView style={{ maxHeight: height * 0.44 }} keyboardShouldPersistTaps="handled">
-          {list.length ? (
-            list.map((p, i) => (
-              <Row key={p.id} last={i === list.length - 1} onPress={() => onPick(p.id)}>
-                <Avatar name={p.name} />
-                <View style={{ flex: 1, minWidth: 0 }}>
-                  <Txt w={600} size={16.5} numberOfLines={1}>
-                    {p.name}
-                  </Txt>
-                </View>
-                <BalChip b={bal(txns, p.id)} settledLabel={t('settled')} />
-              </Row>
-            ))
-          ) : (
-            <Empty desc={t('noMatch')} />
+        <FlatList
+          data={list}
+          keyExtractor={(p) => String(p.id)}
+          style={{ maxHeight: height * 0.44 }}
+          keyboardShouldPersistTaps="handled"
+          renderItem={({ item: p, index }) => (
+            <Row last={index === list.length - 1} onPress={() => onPick(p.id)}>
+              <Avatar name={p.name} />
+              <View style={{ flex: 1, minWidth: 0 }}>
+                <Txt w={600} size={16.5} numberOfLines={1}>
+                  {p.name}
+                </Txt>
+              </View>
+              <BalChip b={bal(txns, p.id)} settledLabel={t('settled')} />
+            </Row>
           )}
-        </ScrollView>
+          ListEmptyComponent={<Empty desc={t('noMatch')} />}
+        />
       </View>
       <Btn label={t('newPerson')} kind="ghost" icon={<PlusIcon color={C.greenDeep} />} onPress={onNew} />
     </Sheet>

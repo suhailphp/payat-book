@@ -5,6 +5,7 @@ export type TabParams = {
   HomeTab: undefined;
   PeopleTab: undefined;
   PayattsTab: undefined;
+  PaymentsTab: undefined;
 };
 
 export type RootParams = {

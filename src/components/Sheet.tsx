@@ -22,11 +22,14 @@ export function Sheet({
   onClose,
   title,
   children,
+  scrollable = true,
 }: {
   visible: boolean;
   onClose: () => void;
   title?: string;
   children: React.ReactNode;
+  /* false = plain View content (for sheets holding their own FlatList) */
+  scrollable?: boolean;
 }) {
   const { height } = useWindowDimensions();
   const insets = useSafeAreaInsets();
@@ -49,17 +52,28 @@ export function Sheet({
         <Pressable style={st.scrim} onPress={onClose} />
         <Animated.View style={[st.sheet, { transform: [{ translateY: y }], maxHeight: height * 0.88 }]}>
           <View style={st.handle} />
-          <ScrollView
-            keyboardShouldPersistTaps="handled"
-            contentContainerStyle={{ paddingHorizontal: 18, paddingBottom: 20 + insets.bottom }}
-          >
-            {title ? (
-              <Txt w={700} size={19} style={{ marginBottom: 14 }}>
-                {title}
-              </Txt>
-            ) : null}
-            {children}
-          </ScrollView>
+          {scrollable ? (
+            <ScrollView
+              keyboardShouldPersistTaps="handled"
+              contentContainerStyle={{ paddingHorizontal: 18, paddingBottom: 20 + insets.bottom }}
+            >
+              {title ? (
+                <Txt w={700} size={19} style={{ marginBottom: 14 }}>
+                  {title}
+                </Txt>
+              ) : null}
+              {children}
+            </ScrollView>
+          ) : (
+            <View style={{ paddingHorizontal: 18, paddingBottom: 20 + insets.bottom }}>
+              {title ? (
+                <Txt w={700} size={19} style={{ marginBottom: 14 }}>
+                  {title}
+                </Txt>
+              ) : null}
+              {children}
+            </View>
+          )}
         </Animated.View>
         <ToastHost />
       </KeyboardAvoidingView>

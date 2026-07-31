@@ -14,12 +14,13 @@ import {
 } from '@expo-google-fonts/baloo-chettan-2';
 import { DataProvider, useData } from './src/data';
 import { C, FONT } from './src/theme';
-import { HomeIcon, PeopleIcon, EnvIcon } from './src/components/Icons';
+import { HomeIcon, PeopleIcon, EnvIcon, PayHandsIcon } from './src/components/Icons';
 import { ToastHost } from './src/components/Toast';
 import { HomeScreen } from './src/screens/HomeScreen';
 import { PeopleScreen } from './src/screens/PeopleScreen';
 import { PersonScreen } from './src/screens/PersonScreen';
 import { PayattsScreen } from './src/screens/PayattsScreen';
+import { PaymentsScreen } from './src/screens/PaymentsScreen';
 import { EventScreen } from './src/screens/EventScreen';
 import type { RootParams, TabParams } from './src/nav';
 
@@ -54,6 +55,11 @@ function Tabs() {
         name="PayattsTab"
         component={PayattsScreen}
         options={{ title: t('tabPayatts'), tabBarIcon: ({ color }) => <EnvIcon color={color} /> }}
+      />
+      <Tab.Screen
+        name="PaymentsTab"
+        component={PaymentsScreen}
+        options={{ title: t('tabPayments'), tabBarIcon: ({ color }) => <PayHandsIcon size={26} color={color} /> }}
       />
     </Tab.Navigator>
   );

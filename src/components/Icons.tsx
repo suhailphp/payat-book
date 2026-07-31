@@ -69,11 +69,12 @@ export const HostIcon = ({ size = 22, color = '#fff' }: P) => (
   </Svg>
 );
 
-export const PayIcon = ({ size = 22, color = '#0A3F2A' }: P) => (
-  <Svg {...base(size)} fill="none" stroke={color} strokeWidth={1.9}>
-    <Path d="M3 15c2.5 0 3.5-1.5 6-1.5 2 0 3.5 1.5 5.5 1.5 1.5 0 2.5-.6 3.5-1.4M8.5 13.2V6.8a1 1 0 011-1H20a1 1 0 011 1v6.4" />
-    <Circle cx={15} cy={9.8} r={1.8} />
-    <Path d="M2.8 18.5c2.6 0 3.6-1.5 6.1-1.5 2 0 3.4 1.5 5.5 1.5 1.5 0 2.6-.6 3.6-1.4" />
+/* Giving hand offering a coin — clean line icon for the Payments tab. */
+export const PayHandsIcon = ({ size = 22, color = '#0A3F2A' }: P) => (
+  <Svg {...base(size)} fill="none" stroke={color} strokeWidth={1.9} strokeLinecap="round" strokeLinejoin="round">
+    <Circle cx={15} cy={5.5} r={2.2} />
+    <Path d="M3 14.5h3l3 1.8c.8.5 1.8.6 2.7.3l7.6-2.5c.8-.3 1.7.1 2 .9.3.8-.1 1.6-.9 2l-8.6 3.6c-.9.4-1.9.4-2.8 0L3 18.5" />
+    <Path d="M3 13v7.5" />
   </Svg>
 );
 

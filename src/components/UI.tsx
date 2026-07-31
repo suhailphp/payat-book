@@ -245,6 +245,27 @@ export function ChipBtn({ label, onPress }: { label: string; onPress: () => void
   );
 }
 
+/* Segmented card styling for virtualized list rows: each row draws the card's
+   side borders; the first/last rows add the rounded top/bottom. Lets FlatList
+   rows look like one PWA-style card without a wrapping <Card>. */
+export const listCardWrap = (index: number, count: number): ViewStyle => ({
+  backgroundColor: C.paper,
+  borderColor: C.line,
+  borderLeftWidth: 1,
+  borderRightWidth: 1,
+  overflow: 'hidden',
+  ...(index === 0 && {
+    borderTopWidth: 1,
+    borderTopLeftRadius: RADIUS,
+    borderTopRightRadius: RADIUS,
+  }),
+  ...(index === count - 1 && {
+    borderBottomWidth: 1,
+    borderBottomLeftRadius: RADIUS,
+    borderBottomRightRadius: RADIUS,
+  }),
+});
+
 export function Fab({ onPress }: { onPress: () => void }) {
   return (
     <Pressable

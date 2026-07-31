@@ -1,9 +1,9 @@
 import React, { useEffect, useState } from 'react';
-import { Alert } from 'react-native';
 import { useData } from '../data';
 import type { Person } from '../lib';
 import { Sheet } from '../components/Sheet';
 import { Btn, Field } from '../components/UI';
+import { confirm } from '../components/confirm';
 import { toast } from '../components/Toast';
 
 /* Add / edit person sheet. `quiet` suppresses the "Person added" toast when
@@ -55,19 +55,16 @@ export function PersonFormSheet({
 
   const del = () => {
     if (!person) return;
-    Alert.alert(t('delPerson'), t('qDelPerson'), [
-      { text: 'Cancel', style: 'cancel' },
-      {
-        text: t('delPerson'),
-        style: 'destructive',
-        onPress: async () => {
-          await removePerson(person.id);
-          onClose();
-          toast(t('tDeleted'));
-          onDeleted?.();
-        },
+    confirm(
+      t('qDelPerson'),
+      async () => {
+        await removePerson(person.id);
+        onClose();
+        toast(t('tDeleted'));
+        onDeleted?.();
       },
-    ]);
+      t('delPerson')
+    );
   };
 
   return (

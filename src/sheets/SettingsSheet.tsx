@@ -1,10 +1,11 @@
 import React from 'react';
-import { Alert, View } from 'react-native';
+import { View } from 'react-native';
 import { useData } from '../data';
 import { exportBackup, pickBackup } from '../backup';
 import { C } from '../theme';
 import { Sheet } from '../components/Sheet';
 import { Btn, Seg, Txt } from '../components/UI';
+import { confirm } from '../components/confirm';
 import { toast } from '../components/Toast';
 
 export function SettingsSheet({ visible, onClose }: { visible: boolean; onClose: () => void }) {
@@ -28,21 +29,11 @@ export function SettingsSheet({ visible, onClose }: { visible: boolean; onClose:
       toast(t('tBadFile'));
       return;
     }
-    Alert.alert(
-      t('restore'),
-      tp('qRestore', { p: picked.people.length, t: picked.txns.length }),
-      [
-        { text: 'Cancel', style: 'cancel' },
-        {
-          text: 'OK',
-          onPress: async () => {
-            await restoreAll(picked.people, picked.events, picked.txns);
-            onClose();
-            toast(t('tRestored'));
-          },
-        },
-      ]
-    );
+    confirm(tp('qRestore', { p: picked.people.length, t: picked.txns.length }), async () => {
+      await restoreAll(picked.people, picked.events, picked.txns);
+      onClose();
+      toast(t('tRestored'));
+    });
   };
 
   return (

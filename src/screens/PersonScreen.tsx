@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from 'react';
-import { Alert, Pressable, ScrollView, StyleSheet, View } from 'react-native';
+import { Pressable, ScrollView, StyleSheet, View } from 'react-native';
 import { useNavigation, useRoute, RouteProp } from '@react-navigation/native';
 import { useData } from '../data';
 import { bal, dstr, fmt } from '../lib';
@@ -9,6 +9,7 @@ import { Btn, Card, Empty, Row, SecTitle, Txt } from '../components/UI';
 import { EditIcon, TrashIcon, WaIcon } from '../components/Icons';
 import { PersonFormSheet } from '../sheets/PersonFormSheet';
 import { EntrySheet, EntryCtx } from '../sheets/EntrySheet';
+import { confirm } from '../components/confirm';
 import { toast } from '../components/Toast';
 import { shareOnWhatsApp } from '../share';
 import type { RootNav, RootParams } from '../nav';
@@ -34,19 +35,11 @@ export function PersonScreen() {
     .filter((x) => x.personId === pid)
     .sort((a, b2) => (b2.date || '').localeCompare(a.date || '') || b2.id - a.id);
 
-  const delTxn = (id: number) => {
-    Alert.alert('', t('qDelEntry'), [
-      { text: 'Cancel', style: 'cancel' },
-      {
-        text: 'OK',
-        style: 'destructive',
-        onPress: async () => {
-          await removeTxn(id);
-          toast(t('tDeleted'));
-        },
-      },
-    ]);
-  };
+  const delTxn = (id: number) =>
+    confirm(t('qDelEntry'), async () => {
+      await removeTxn(id);
+      toast(t('tDeleted'));
+    });
 
   return (
     <View style={{ flex: 1, backgroundColor: C.cotton }}>
