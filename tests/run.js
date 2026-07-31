@@ -20,6 +20,7 @@ const {
   packBubbles,
   waitingLongest,
   daysSince,
+  formatIntlPhone,
   reminderDates,
   relativeInvLabel,
   parseNotifIds,
@@ -531,6 +532,16 @@ ok('backup v3 round-trip with invitations; v2 import stays valid', () => {
   assert.ok(p2);
   assert.deepStrictEqual(p2.invitations, []);
   assert.deepStrictEqual(p2.txns, txns);
+});
+
+/* ---------- v6.1: phone display ---------- */
+
+ok('formatIntlPhone: UAE-style grouping, junk stripped, short passthrough', () => {
+  assert.strictEqual(formatIntlPhone('971501234567'), '+971 50 123 4567');
+  assert.strictEqual(formatIntlPhone('+971 50-123-4567'), '+971 50 123 4567');
+  assert.strictEqual(formatIntlPhone('919876543210'), '+919 87 654 3210');
+  assert.strictEqual(formatIntlPhone('12345'), '+12345');
+  assert.strictEqual(formatIntlPhone(''), '');
 });
 
 console.log(`\n${n} checks passed`);

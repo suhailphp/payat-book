@@ -145,6 +145,15 @@ export const filterPayments = (txns: Txn[], people: Person[], q: string): Txn[] 
     .sort((a, b) => (b.date || '').localeCompare(a.date || '') || b.id - a.id);
 };
 
+/* Readable international phone display: "9715XXXXXXXX" → "+971 5X XXX XXXX".
+   Groups the last 9 digits as 2-3-4; everything before is the country code. */
+export const formatIntlPhone = (raw: string): string => {
+  const d = (raw || '').replace(/[^\d]/g, '');
+  if (d.length < 10) return d ? '+' + d : '';
+  const cc = d.slice(0, -9);
+  return `+${cc} ${d.slice(-9, -7)} ${d.slice(-7, -4)} ${d.slice(-4)}`;
+};
+
 /* ---- v6: payat invitations + reminders ---- */
 
 export type Invitation = {

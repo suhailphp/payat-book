@@ -86,7 +86,10 @@ en:{
   notifOff:"Reminders are off — allow notifications in phone settings.",
   notifWebHint:"Reminders work in the phone app.",
   about:"About", developedBy:"Developed by {n}",
-  contactWA:"Message on WhatsApp", contactEmail:"Send email"
+  contactWA:"Message on WhatsApp", contactEmail:"Send email",
+  contactWhatsApp:"WhatsApp", contactEmailLbl:"Email", copied:"Copied",
+  aboutTagline:"Our Tradition. Our Trust.",
+  aboutFooter:"Built for the payattu tradition of Malabar."
 },
 ml:{
   tabBook:"ബുക്ക്", tabPeople:"ആളുകൾ", tabPayatts:"പയറ്റുകൾ",
@@ -171,7 +174,10 @@ ml:{
   notifOff:"റിമൈൻഡർ ഓഫാണ് — ഫോൺ സെറ്റിംഗ്സിൽ നോട്ടിഫിക്കേഷൻ അനുവദിക്കുക.",
   notifWebHint:"റിമൈൻഡർ ഫോൺ ആപ്പിൽ പ്രവർത്തിക്കും.",
   about:"ആപ്പിനെക്കുറിച്ച്", developedBy:"നിർമ്മിച്ചത്: {n}",
-  contactWA:"വാട്സ്ആപ്പിൽ മെസേജ് ചെയ്യുക", contactEmail:"ഇമെയിൽ അയയ്ക്കുക"
+  contactWA:"വാട്സ്ആപ്പിൽ മെസേജ് ചെയ്യുക", contactEmail:"ഇമെയിൽ അയയ്ക്കുക",
+  contactWhatsApp:"വാട്സ്ആപ്പ്", contactEmailLbl:"ഇമെയിൽ", copied:"കോപ്പി ചെയ്തു",
+  aboutTagline:"നമ്മുടെ പാരമ്പര്യം. നമ്മുടെ വിശ്വാസം.",
+  aboutFooter:"മലബാറിന്റെ പണപ്പയറ്റ് പാരമ്പര്യത്തിനായി നിർമ്മിച്ചത്."
 }};
 
 export const tFor = (lang: Lang) => (k: string): string =>

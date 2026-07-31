@@ -95,6 +95,12 @@ export const GlobeIcon = ({ size = 24, color = '#0A3F2A' }: P) => (
   </Svg>
 );
 
+export const ChevronRightIcon = ({ size = 20, color = '#5C6657' }: P) => (
+  <Svg {...base(size)} fill="none" stroke={color} strokeWidth={2}>
+    <Path d="M9 5l7 7-7 7" />
+  </Svg>
+);
+
 export const InfoIcon = ({ size = 22, color = '#0A3F2A' }: P) => (
   <Svg {...base(size)} fill="none" stroke={color} strokeWidth={1.9} strokeLinecap="round">
     <Circle cx={12} cy={12} r={8.5} />
