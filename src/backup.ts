@@ -2,7 +2,7 @@ import { Platform } from 'react-native';
 import * as DocumentPicker from 'expo-document-picker';
 import * as FileSystem from 'expo-file-system/legacy';
 import * as Sharing from 'expo-sharing';
-import { Backup, parseBackup, PayatEvent, Person, serializeBackup, today, Txn } from './lib';
+import { Backup, Invitation, parseBackup, PayatEvent, Person, serializeBackup, today, Txn } from './lib';
 
 /* Backup export, v2 JSON (same format as the PWA's doExport, so files move
    between web and app).
@@ -12,8 +12,13 @@ import { Backup, parseBackup, PayatEvent, Person, serializeBackup, today, Txn } 
    so the web path is a Blob + <a download> click, like the PWA.
    Native: legacy write to cacheDirectory + the system share sheet.
    Errors propagate to the caller — never swallow them silently. */
-export async function exportBackup(people: Person[], events: PayatEvent[], txns: Txn[]): Promise<void> {
-  const json = serializeBackup(people, events, txns);
+export async function exportBackup(
+  people: Person[],
+  events: PayatEvent[],
+  txns: Txn[],
+  invitations: Invitation[] = []
+): Promise<void> {
+  const json = serializeBackup(people, events, txns, invitations);
   const fname = `payat-backup-${today()}.json`;
 
   if (Platform.OS === 'web') {

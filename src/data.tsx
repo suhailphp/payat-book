@@ -1,14 +1,16 @@
 import React, { createContext, useCallback, useContext, useEffect, useMemo, useState } from 'react';
 import * as db from './db';
 import { Lang, tFor, tpFor } from './i18n';
-import type { PayatEvent, Person, Txn } from './lib';
-import { today } from './lib';
+import type { Invitation, PayatEvent, Person, Txn } from './lib';
+import { closeInvitation, today } from './lib';
+import { cancelReminders, scheduleInvitationReminders } from './notifications';
 
 type Data = {
   ready: boolean;
   people: Person[];
   events: PayatEvent[];
   txns: Txn[];
+  invitations: Invitation[];
   meta: Record<string, string>;
   lang: Lang;
   t: (k: string) => string;
@@ -22,8 +24,11 @@ type Data = {
   removeEvent: (id: number) => Promise<void>;
   addTxn: (t: Omit<Txn, 'id'>) => Promise<number>;
   removeTxn: (id: number) => Promise<void>;
+  addInvitation: (hostId: number, date: string, note: string) => Promise<number>;
+  /* paid (with optional linked txn) or removed — cancels all reminders */
+  closeInv: (id: number, status: 'paid' | 'removed', paidTxnId?: number | null) => Promise<void>;
   setMeta: (k: string, v: string) => Promise<void>;
-  restoreAll: (people: Person[], events: PayatEvent[], txns: Txn[]) => Promise<void>;
+  restoreAll: (people: Person[], events: PayatEvent[], txns: Txn[], invitations: Invitation[]) => Promise<void>;
   /* re-read everything from SQLite (used by the dev seed tool) */
   reload: () => Promise<void>;
 };
@@ -35,6 +40,7 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
   const [people, setPeople] = useState<Person[]>([]);
   const [events, setEvents] = useState<PayatEvent[]>([]);
   const [txns, setTxns] = useState<Txn[]>([]);
+  const [invitations, setInvitations] = useState<Invitation[]>([]);
   const [meta, setMetaState] = useState<Record<string, string>>({});
   const [lang, setLangState] = useState<Lang>('en');
 
@@ -43,6 +49,7 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
     setPeople(all.people);
     setEvents(all.events);
     setTxns(all.txns);
+    setInvitations(all.invitations);
     setMetaState(all.meta);
     return all;
   }, []);
@@ -62,6 +69,7 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
       people,
       events,
       txns,
+      invitations,
       meta,
       lang,
       t: tFor(lang),
@@ -81,6 +89,10 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
         await refresh();
       },
       removePerson: async (id) => {
+        /* cancel this person's invitation reminders before the cascade */
+        for (const inv of invitations.filter((i) => i.hostId === id)) {
+          await cancelReminders(inv.notifIds);
+        }
         await db.deletePerson(id);
         await refresh();
       },
@@ -106,19 +118,57 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
         await db.deleteTxn(id);
         await refresh();
       },
+      addInvitation: async (hostId, date, note) => {
+        const hostName = people.find((p) => p.id === hostId)?.name ?? '';
+        let notifIds: string[] = [];
+        try {
+          notifIds = await scheduleInvitationReminders(date, hostName, note, lang);
+        } catch {
+          /* permission missing or scheduling unavailable — invitation still saved */
+        }
+        const id = await db.insertInvitation(hostId, date, note, JSON.stringify(notifIds));
+        await refresh();
+        return id;
+      },
+      closeInv: async (id, status, paidTxnId = null) => {
+        const inv = invitations.find((i) => i.id === id);
+        if (!inv) return;
+        const { updated, cancelIds } = closeInvitation(inv, status, paidTxnId);
+        await cancelReminders(JSON.stringify(cancelIds));
+        await db.updateInvitation(id, {
+          status: updated.status,
+          notifIds: updated.notifIds,
+          paidTxnId: updated.paidTxnId,
+        });
+        await refresh();
+      },
       setMeta: async (k, v) => {
         await db.setMetaValue(k, v);
         setMetaState((m) => ({ ...m, [k]: v }));
       },
-      restoreAll: async (p, e, x) => {
-        await db.replaceAll(p, e, x);
+      restoreAll: async (p, e, x, inv) => {
+        /* cancel reminders belonging to the data being replaced */
+        for (const old of invitations) {
+          await cancelReminders(old.notifIds);
+        }
+        await db.replaceAll(p, e, x, inv);
+        /* restored pending invitations get fresh reminders on this device */
+        for (const i of inv.filter((v) => v.status === 'pending')) {
+          try {
+            const hostName = p.find((pp) => pp.id === i.hostId)?.name ?? '';
+            const ids = await scheduleInvitationReminders(i.date, hostName, i.note, lang);
+            await db.updateInvitation(i.id, { notifIds: JSON.stringify(ids) });
+          } catch {
+            /* reminders off — list still works */
+          }
+        }
         await refresh();
       },
       reload: async () => {
         await refresh();
       },
     }),
-    [ready, people, events, txns, meta, lang, refresh]
+    [ready, people, events, txns, invitations, meta, lang, refresh]
   );
 
   return <Ctx.Provider value={value}>{children}</Ctx.Provider>;
