@@ -16,9 +16,10 @@ src/
   theme.ts            Kasavu design tokens (cotton, green, gold, red…)
   share.ts            WhatsApp statement text + deep link
   backup.ts           Backup export (share sheet) / restore (document picker)
-  components/         Header (kasavu stripe), Sheet, Toast, cards, chips, buttons, icons
-  screens/            Home (Book), People, Person, Payatts, Event (Hosting)
+  components/         Header (kasavu stripe), BrandLogo, Sheet, Toast, MonthChart, cards, chips, buttons, icons
+  screens/            Onboarding, Book dashboard, People, Person, Payatts (hosting), Payments, Event (Hosting)
   sheets/             Person form, amount entry, person picker, host payat, settings
+tests/                Node test suite for the pure logic (npm test)
 assets/               App icon / adaptive icon / splash (Logo.png), header logo
 docs/design/          The PWA reference implementation (live web version for iPhone)
 docs/PAYAT-ANDROID.md The build spec
@@ -30,6 +31,8 @@ docs/PAYAT-ANDROID.md The build spec
 npm install
 npx expo start
 ```
+
+Logic tests: `npm test` (compiles the pure modules and runs the node suite).
 
 Scan the QR code with [Expo Go](https://expo.dev/go) on an Android phone.
 
