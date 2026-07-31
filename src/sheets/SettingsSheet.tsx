@@ -1,16 +1,33 @@
 import React from 'react';
-import { View } from 'react-native';
+import { Linking, View } from 'react-native';
+import { useNavigation } from '@react-navigation/native';
 import { useData } from '../data';
 import { exportBackup, pickBackup } from '../backup';
 import { C } from '../theme';
 import { Sheet } from '../components/Sheet';
 import { Btn, Field, Seg, Txt } from '../components/UI';
+import { InfoIcon } from '../components/Icons';
 import { confirmSheet } from '../components/ConfirmSheet';
 import { toast } from '../components/Toast';
+import { getPermissionGranted, notificationsSupported, requestPermission } from '../notifications';
+import type { RootNav } from '../nav';
 
 export function SettingsSheet({ visible, onClose }: { visible: boolean; onClose: () => void }) {
-  const { t, tp, lang, setLang, people, events, txns, meta, setMeta, restoreAll, reload } = useData();
+  const nav = useNavigation<RootNav>();
+  const { t, tp, lang, setLang, people, events, txns, invitations, meta, setMeta, restoreAll, reload } = useData();
   const [seeding, setSeeding] = React.useState(false);
+  const [permGranted, setPermGranted] = React.useState(true);
+
+  React.useEffect(() => {
+    if (visible && notificationsSupported) getPermissionGranted().then(setPermGranted);
+  }, [visible]);
+
+  /* retry path when reminders were denied: re-ask, else open OS settings */
+  const retryNotifications = async () => {
+    const granted = await requestPermission();
+    setPermGranted(granted);
+    if (!granted) Linking.openSettings().catch(() => {});
+  };
 
   /* dev-only: seed sample data so pagination/search/bubbles can be verified */
   const doSeed = async () => {
@@ -40,7 +57,7 @@ export function SettingsSheet({ visible, onClose }: { visible: boolean; onClose:
 
   const doExport = async () => {
     try {
-      await exportBackup(people, events, txns);
+      await exportBackup(people, events, txns, invitations);
       await setMeta('lastBackup', String(Date.now()));
       onClose();
       toast(t('tBackupSaved'));
@@ -62,7 +79,7 @@ export function SettingsSheet({ visible, onClose }: { visible: boolean; onClose:
       destructive: false,
     });
     if (!ok) return;
-    await restoreAll(picked.people, picked.events, picked.txns);
+    await restoreAll(picked.people, picked.events, picked.txns, picked.invitations);
     onClose();
     toast(t('tRestored'));
   };
@@ -98,6 +115,23 @@ export function SettingsSheet({ visible, onClose }: { visible: boolean; onClose:
       {__DEV__ ? (
         <Btn label={seeding ? 'Seeding…' : 'Seed 30 sample people + entries'} kind="gold" onPress={doSeed} />
       ) : null}
+      {notificationsSupported && !permGranted ? (
+        <View style={{ marginTop: 10 }}>
+          <Txt size={13.5} color={C.inkSoft}>
+            {t('notifOff')}
+          </Txt>
+          <Btn label={t('notifExplain')} kind="gold" onPress={retryNotifications} />
+        </View>
+      ) : null}
+      <Btn
+        label={t('about')}
+        kind="ghost"
+        icon={<InfoIcon color={C.greenDeep} />}
+        onPress={() => {
+          onClose();
+          nav.navigate('About');
+        }}
+      />
       <Txt size={13.5} color={C.inkSoft} style={{ marginTop: 14 }}>
         {meta.lastBackup
           ? tp('lastBackup', { d: new Date(Number(meta.lastBackup)).toLocaleDateString('en-IN') })
