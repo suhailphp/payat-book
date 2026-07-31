@@ -69,7 +69,11 @@ en:{
   netReceive:"Net to receive: {a}", netGive:"Net to give: {a}",
   ongoingPayat:"Ongoing payat",
   backupFailed:"Backup failed: {e}",
-  langToggle:"Change language"
+  langToggle:"Change language",
+  bubblesTitle:"Balances at a glance",
+  pendingLong:"Waiting the longest",
+  daysAgo:"{d} days ago",
+  shareFor:"Account: {n}"
 },
 ml:{
   tabBook:"ബുക്ക്", tabPeople:"ആളുകൾ", tabPayatts:"പയറ്റുകൾ",
@@ -137,7 +141,11 @@ ml:{
   netReceive:"മൊത്തം കിട്ടാനുള്ളത്: {a}", netGive:"മൊത്തം കൊടുക്കാനുള്ളത്: {a}",
   ongoingPayat:"നടക്കുന്ന പയറ്റ്",
   backupFailed:"ബാക്കപ്പ് പരാജയപ്പെട്ടു: {e}",
-  langToggle:"ഭാഷ മാറ്റുക"
+  langToggle:"ഭാഷ മാറ്റുക",
+  bubblesTitle:"ബാലൻസ് ഒറ്റനോട്ടത്തിൽ",
+  pendingLong:"കൂടുതൽ നാളായി ബാക്കിയുള്ളവർ",
+  daysAgo:"{d} ദിവസം മുൻപ്",
+  shareFor:"കണക്ക്: {n}"
 }};
 
 export const tFor = (lang: Lang) => (k: string): string =>

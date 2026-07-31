@@ -16,6 +16,10 @@ const {
   searchFilter,
   pageSlice,
   totals,
+  bubbleItems,
+  packBubbles,
+  waitingLongest,
+  daysSince,
 } = require('../.testbuild/lib');
 const { buildShareText } = require('../.testbuild/share');
 
@@ -341,6 +345,88 @@ ok('totals: receive/give sums, counts, net', () => {
   const neg = totals(ppl.slice(2, 3), t10);
   assert.strictEqual(neg.net, -1000);
   assert.deepStrictEqual(totals([], []), { recv: 0, give: 0, cr: 0, cg: 0, net: 0 });
+});
+
+/* ---------- v5: balance bubbles ---------- */
+
+ok('bubbleItems: sized by sqrt scale, clamped, settled excluded, capped at 8', () => {
+  const ppl = Array.from({ length: 10 }, (_, i) => ({ id: i + 1, name: 'P' + (i + 1), phone: '', created: null }));
+  const t11 = [];
+  let id = 1;
+  for (let i = 1; i <= 9; i++) t11.push({ id: id++, personId: i, eventId: null, dir: 'out', amount: i * 1000, date: null, note: '' });
+  // person 10 settled
+  t11.push({ id: id++, personId: 10, eventId: null, dir: 'in', amount: 500, date: null, note: '' });
+  t11.push({ id: id++, personId: 10, eventId: null, dir: 'out', amount: 500, date: null, note: '' });
+  const items = bubbleItems(ppl, t11, 8);
+  assert.strictEqual(items.length, 8);
+  assert.ok(!items.some((x) => x.id === 10), 'settled excluded');
+  assert.ok(!items.some((x) => x.id === 1), 'smallest of 9 cut by cap');
+  const biggest = items.find((x) => x.id === 9);
+  assert.strictEqual(biggest.d, 100); // maxAbs → 56 + 44 = 100
+  items.forEach((x) => assert.ok(x.d >= 56 && x.d <= 100));
+  // monotone: larger |bal| → larger or equal diameter
+  const sorted = [...items].sort((a, b) => Math.abs(b.b) - Math.abs(a.b));
+  for (let i = 1; i < sorted.length; i++) assert.ok(sorted[i - 1].d >= sorted[i].d);
+});
+
+ok('packBubbles: no overlaps, inside bounds, deterministic (1–8 × 320/390/430)', () => {
+  const H = 230;
+  for (const W of [320, 390, 430]) {
+    for (let count = 1; count <= 8; count++) {
+      const items = Array.from({ length: count }, (_, i) => ({
+        id: i,
+        d: 56 + ((i * 17) % 45), // deterministic spread of diameters 56..100
+      }));
+      const placed = packBubbles(items, W, H);
+      assert.ok(placed.length > 0, `W=${W} count=${count}: nothing placed`);
+      for (const p of placed) {
+        assert.ok(p.x - p.d / 2 >= 0 && p.x + p.d / 2 <= W, `W=${W} count=${count}: x out of bounds`);
+        assert.ok(p.y - p.d / 2 >= 0 && p.y + p.d / 2 + 30 <= H, `W=${W} count=${count}: y out of bounds`);
+      }
+      for (let a = 0; a < placed.length; a++) {
+        for (let b = a + 1; b < placed.length; b++) {
+          const dist = Math.hypot(placed[a].x - placed[b].x, placed[a].y - placed[b].y);
+          assert.ok(
+            dist >= placed[a].d / 2 + placed[b].d / 2 + 10 - 1e-9,
+            `W=${W} count=${count}: overlap (${dist})`
+          );
+        }
+      }
+      // deterministic
+      assert.deepStrictEqual(packBubbles(items, W, H), placed);
+    }
+  }
+});
+
+/* ---------- v5: waiting longest ---------- */
+
+ok('waitingLongest: oldest last-entry first, settled excluded, ties by |bal| desc', () => {
+  const ppl = [1, 2, 3, 4, 5].map((id) => ({ id, name: 'P' + id, phone: '', created: null }));
+  const t12 = [
+    // P1: last entry 2026-05-01, bal +500
+    { id: 1, personId: 1, eventId: null, dir: 'out', amount: 500, date: '2026-05-01', note: '' },
+    // P2: last entry 2026-01-15, bal -800  ← oldest
+    { id: 2, personId: 2, eventId: null, dir: 'in', amount: 800, date: '2026-01-15', note: '' },
+    // P3: last 2026-03-01, bal +200 (tie date with P5, smaller |bal|)
+    { id: 3, personId: 3, eventId: null, dir: 'out', amount: 200, date: '2026-03-01', note: '' },
+    // P4: settled — excluded
+    { id: 4, personId: 4, eventId: null, dir: 'in', amount: 300, date: '2026-02-01', note: '' },
+    { id: 5, personId: 4, eventId: null, dir: 'out', amount: 300, date: '2026-02-20', note: '' },
+    // P5: last 2026-03-01, bal +900 (tie date with P3, larger |bal| → first)
+    { id: 6, personId: 5, eventId: null, dir: 'out', amount: 900, date: '2026-03-01', note: '' },
+    { id: 7, personId: 5, eventId: null, dir: 'in', amount: 0, date: '2026-02-01', note: '' },
+  ];
+  const rows = waitingLongest(ppl, t12, 3);
+  assert.deepStrictEqual(rows.map((r) => r.person.id), [2, 5, 3]);
+  assert.strictEqual(rows[0].lastDate, '2026-01-15');
+  const all = waitingLongest(ppl, t12, 10);
+  assert.ok(!all.some((r) => r.person.id === 4), 'settled excluded');
+});
+
+ok('daysSince', () => {
+  assert.strictEqual(daysSince('2026-07-01', '2026-07-31'), 30);
+  assert.strictEqual(daysSince('2026-07-31', '2026-07-31'), 0);
+  assert.strictEqual(daysSince('2026-08-05', '2026-07-31'), 0); // future clamps to 0
 });
 
 console.log(`\n${n} checks passed`);

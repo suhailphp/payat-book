@@ -145,6 +145,82 @@ export const filterPayments = (txns: Txn[], people: Person[], q: string): Txn[] 
     .sort((a, b) => (b.date || '').localeCompare(a.date || '') || b.id - a.id);
 };
 
+/* ---- v5: balance bubbles ---- */
+
+export type BubbleItem = { id: number; name: string; b: number; d: number };
+
+/* Up to n people with the largest absolute balances, sized
+   d = 56 + 44·√(|bal| / maxAbs), clamped 56–100. Settled people excluded. */
+export const bubbleItems = (people: Person[], txns: Txn[], n = 8): BubbleItem[] => {
+  const ranked = people
+    .map((person) => ({ person, b: bal(txns, person.id) }))
+    .filter((r) => r.b !== 0)
+    .sort((a, b) => Math.abs(b.b) - Math.abs(a.b))
+    .slice(0, n);
+  const maxAbs = Math.max(1, ...ranked.map((r) => Math.abs(r.b)));
+  return ranked.map((r) => ({
+    id: r.person.id,
+    name: r.person.name,
+    b: r.b,
+    d: Math.max(56, Math.min(100, 56 + 44 * Math.sqrt(Math.abs(r.b) / maxAbs))),
+  }));
+};
+
+/* Deterministic greedy circle packing: biggest first, each bubble takes the
+   highest free position (then closest to the horizontal center), keeping a
+   ≥gap px ring between circles and staying inside width×height (textPad
+   reserves room for the name/amount under each circle). Bubbles that cannot
+   fit are dropped — they are the smallest, placed last. */
+export const packBubbles = <T extends { d: number }>(
+  items: T[],
+  width: number,
+  height: number,
+  gap = 10,
+  textPad = 30
+): (T & { x: number; y: number })[] => {
+  const sorted = [...items].sort((a, b) => b.d - a.d);
+  const placed: (T & { x: number; y: number })[] = [];
+  const step = 8;
+  for (const it of sorted) {
+    const r = it.d / 2;
+    let best: { x: number; y: number } | null = null;
+    outer: for (let y = r + 2; y + r + textPad <= height; y += step) {
+      const xs: number[] = [];
+      for (let x = r + 2; x + r <= width - 2; x += step) xs.push(x);
+      xs.sort((a, b) => Math.abs(a - width / 2) - Math.abs(b - width / 2));
+      for (const x of xs) {
+        if (placed.every((p) => Math.hypot(p.x - x, p.y - y) >= p.d / 2 + r + gap)) {
+          best = { x, y };
+          break outer;
+        }
+      }
+    }
+    if (best) placed.push({ ...it, x: best.x, y: best.y });
+  }
+  return placed;
+};
+
+/* ---- v5: waiting longest ---- */
+
+export type WaitingRow = { person: Person; b: number; lastDate: string };
+
+/* Unsettled people whose most recent entry is oldest; ties broken by
+   absolute balance (largest first). */
+export const waitingLongest = (people: Person[], txns: Txn[], n = 3): WaitingRow[] => {
+  const rows: WaitingRow[] = [];
+  for (const person of people) {
+    const list = txns.filter((x) => x.personId === person.id);
+    const b = list.reduce((s, x) => s + (x.dir === 'out' ? x.amount : -x.amount), 0);
+    const lastDate = list.reduce((m, x) => (x.date && x.date > m ? x.date : m), '');
+    if (b !== 0 && lastDate) rows.push({ person, b, lastDate });
+  }
+  rows.sort((a, b) => a.lastDate.localeCompare(b.lastDate) || Math.abs(b.b) - Math.abs(a.b));
+  return rows.slice(0, n);
+};
+
+export const daysSince = (iso: string, todayIso: string): number =>
+  Math.max(0, Math.floor((+new Date(todayIso + 'T00:00') - +new Date(iso + 'T00:00')) / 864e5));
+
 /* ---- v4: search + pagination (pure, shared by SearchableList and the
    hosting screen's sections) ---- */
 
