@@ -24,6 +24,8 @@ type Data = {
   removeTxn: (id: number) => Promise<void>;
   setMeta: (k: string, v: string) => Promise<void>;
   restoreAll: (people: Person[], events: PayatEvent[], txns: Txn[]) => Promise<void>;
+  /* re-read everything from SQLite (used by the dev seed tool) */
+  reload: () => Promise<void>;
 };
 
 const Ctx = createContext<Data | null>(null);
@@ -110,6 +112,9 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
       },
       restoreAll: async (p, e, x) => {
         await db.replaceAll(p, e, x);
+        await refresh();
+      },
+      reload: async () => {
         await refresh();
       },
     }),

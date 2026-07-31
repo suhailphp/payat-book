@@ -9,7 +9,22 @@ import { confirmSheet } from '../components/ConfirmSheet';
 import { toast } from '../components/Toast';
 
 export function SettingsSheet({ visible, onClose }: { visible: boolean; onClose: () => void }) {
-  const { t, tp, lang, setLang, people, events, txns, meta, setMeta, restoreAll } = useData();
+  const { t, tp, lang, setLang, people, events, txns, meta, setMeta, restoreAll, reload } = useData();
+  const [seeding, setSeeding] = React.useState(false);
+
+  /* dev-only: seed sample data so pagination/search/bubbles can be verified */
+  const doSeed = async () => {
+    if (seeding) return;
+    setSeeding(true);
+    try {
+      const { seedSampleData } = await import('../dev/seed');
+      await seedSampleData();
+      await reload();
+      toast('Seeded 30 people + entries');
+    } finally {
+      setSeeding(false);
+    }
+  };
   const [name, setName] = React.useState(meta.ownerName ?? '');
 
   React.useEffect(() => {
@@ -80,6 +95,9 @@ export function SettingsSheet({ visible, onClose }: { visible: boolean; onClose:
       </Txt>
       <Btn label={t('saveBackup')} onPress={doExport} />
       <Btn label={t('restore')} kind="ghost" onPress={doRestore} />
+      {__DEV__ ? (
+        <Btn label={seeding ? 'Seeding…' : 'Seed 30 sample people + entries'} kind="gold" onPress={doSeed} />
+      ) : null}
       <Txt size={13.5} color={C.inkSoft} style={{ marginTop: 14 }}>
         {meta.lastBackup
           ? tp('lastBackup', { d: new Date(Number(meta.lastBackup)).toLocaleDateString('en-IN') })
