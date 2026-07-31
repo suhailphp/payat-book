@@ -50,8 +50,8 @@ export function HomeScreen() {
       await exportBackup(people, events, txns);
       await setMeta('lastBackup', String(Date.now()));
       toast(t('tBackupSaved'));
-    } catch {
-      /* user cancelled share */
+    } catch (e) {
+      toast(tp('backupFailed', { e: String((e as Error)?.message ?? e) }));
     }
   };
 

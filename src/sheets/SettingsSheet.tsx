@@ -29,8 +29,8 @@ export function SettingsSheet({ visible, onClose }: { visible: boolean; onClose:
       await setMeta('lastBackup', String(Date.now()));
       onClose();
       toast(t('tBackupSaved'));
-    } catch {
-      /* user cancelled share */
+    } catch (e) {
+      toast(tp('backupFailed', { e: String((e as Error)?.message ?? e) }));
     }
   };
 
