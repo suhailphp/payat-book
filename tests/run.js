@@ -13,6 +13,9 @@ const {
   monthTotals,
   topBalances,
   filterPayments,
+  searchFilter,
+  pageSlice,
+  totals,
 } = require('../.testbuild/lib');
 const { buildShareText } = require('../.testbuild/share');
 
@@ -264,6 +267,80 @@ ok('filterPayments: matches person name and note, case-insensitive', () => {
   assert.deepStrictEqual(filterPayments(t9, ppl, 'wedd').map((x) => x.id), [2]);
   assert.deepStrictEqual(filterPayments(t9, ppl, 'house').map((x) => x.id), [1]);
   assert.deepStrictEqual(filterPayments(t9, ppl, 'zzz').map((x) => x.id), []);
+});
+
+/* ---------- v4: backup payload format ---------- */
+
+ok('backup payload keeps v2 shape and key order', () => {
+  const raw = serializeBackup(people, events, txns);
+  const d = JSON.parse(raw);
+  assert.deepStrictEqual(Object.keys(d), ['app', 'version', 'exported', 'people', 'events', 'txns']);
+  assert.strictEqual(d.app, 'payat-book');
+  assert.strictEqual(d.version, 2);
+  assert.ok(!Number.isNaN(Date.parse(d.exported)), 'exported must be an ISO timestamp');
+  // and the PWA-side validation (app check + people array) accepts it
+  assert.ok(d.app === 'payat-book' && Array.isArray(d.people));
+});
+
+/* ---------- v4: search + pagination ---------- */
+
+const NAMES = [
+  { id: 1, name: 'Riyas', note: 'wedding' },
+  { id: 2, name: 'Fathima', note: '' },
+  { id: 3, name: 'Hameed', note: 'housewarming' },
+  { id: 4, name: 'riyaz', note: '' },
+];
+
+ok('searchFilter: case-insensitive across keys, empty query = all', () => {
+  assert.strictEqual(searchFilter(NAMES, '', ['name']).length, 4);
+  assert.strictEqual(searchFilter(NAMES, '  ', ['name']).length, 4);
+  assert.deepStrictEqual(searchFilter(NAMES, 'riya', ['name']).map((x) => x.id), [1, 4]);
+  assert.deepStrictEqual(searchFilter(NAMES, 'HOUSE', ['name', 'note']).map((x) => x.id), [3]);
+  assert.deepStrictEqual(searchFilter(NAMES, 'zzz', ['name', 'note']), []);
+  assert.deepStrictEqual(searchFilter(NAMES, 'wed', ['name']), []); // note not in keys
+});
+
+ok('pageSlice: limits and reports more', () => {
+  const data = Array.from({ length: 37 }, (_, i) => i);
+  let page = pageSlice(data, 10);
+  assert.strictEqual(page.rows.length, 10);
+  assert.strictEqual(page.hasMore, true);
+  page = pageSlice(data, 35);
+  assert.strictEqual(page.rows.length, 35);
+  assert.strictEqual(page.hasMore, true);
+  page = pageSlice(data, 37);
+  assert.strictEqual(page.rows.length, 37);
+  assert.strictEqual(page.hasMore, false);
+  page = pageSlice(data, 60);
+  assert.strictEqual(page.hasMore, false);
+  assert.deepStrictEqual(pageSlice([], 10), { rows: [], hasMore: false });
+});
+
+ok('search-then-page composes over the full dataset', () => {
+  const many = Array.from({ length: 50 }, (_, i) => ({ id: i, name: i % 2 ? 'Riyas ' + i : 'Fathima ' + i }));
+  const filtered = searchFilter(many, 'riyas', ['name']);
+  assert.strictEqual(filtered.length, 25);
+  const page = pageSlice(filtered, 10);
+  assert.strictEqual(page.rows.length, 10);
+  assert.strictEqual(page.hasMore, true);
+});
+
+/* ---------- v4: net position ---------- */
+
+ok('totals: receive/give sums, counts, net', () => {
+  const ppl = [1, 2, 3, 4].map((id) => ({ id, name: 'P' + id, phone: '', created: null }));
+  const t10 = [
+    { id: 1, personId: 1, eventId: null, dir: 'out', amount: 10000, date: null, note: '' },
+    { id: 2, personId: 2, eventId: null, dir: 'out', amount: 5000, date: null, note: '' },
+    { id: 3, personId: 3, eventId: null, dir: 'in', amount: 1000, date: null, note: '' },
+    // person 4 settled
+    { id: 4, personId: 4, eventId: null, dir: 'in', amount: 700, date: null, note: '' },
+    { id: 5, personId: 4, eventId: null, dir: 'out', amount: 700, date: null, note: '' },
+  ];
+  assert.deepStrictEqual(totals(ppl, t10), { recv: 15000, give: 1000, cr: 2, cg: 1, net: 14000 });
+  const neg = totals(ppl.slice(2, 3), t10);
+  assert.strictEqual(neg.net, -1000);
+  assert.deepStrictEqual(totals([], []), { recv: 0, give: 0, cr: 0, cg: 0, net: 0 });
 });
 
 console.log(`\n${n} checks passed`);
