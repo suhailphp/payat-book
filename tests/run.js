@@ -8,6 +8,7 @@ const {
   serializeBackup,
   parseBackup,
   dstr,
+  dstrFromMillis,
   monthKey,
   monthBuckets,
   monthTotals,
@@ -124,8 +125,8 @@ ok('share text EN (v5 format: title, Account line, history, balance)', () => {
   assert.strictEqual(lines[0], '📒 *Hameed — Payat Book*');
   assert.strictEqual(lines[1], 'Account: Riyas KP');
   assert.strictEqual(lines[2], '');
-  assert.ok(lines[3].includes('You gave ₹1,000'));
-  assert.ok(lines[4].includes('I gave ₹2,000 (wedding payat)'));
+  assert.strictEqual(lines[3], '10/07/2026 — You gave ₹1,000');
+  assert.strictEqual(lines[4], '20/07/2026 — I gave ₹2,000 (wedding payat)');
   assert.strictEqual(lines[6], '*You have ₹1,000 to give.*');
 });
 
@@ -177,10 +178,18 @@ ok('pending: positive balance, not yet paid in event', () => {
   assert.deepStrictEqual(pending.map((p) => p.id), [1]);
 });
 
-ok('dstr formats', () => {
-  assert.strictEqual(dstr('2026-07-31', 'en'), '31 Jul 2026');
-  assert.ok(dstr('2026-07-31', 'ml').length > 0);
+ok('dstr formats DD/MM/YYYY in both languages, storage stays ISO', () => {
+  assert.strictEqual(dstr('2026-07-31', 'en'), '31/07/2026');
+  assert.strictEqual(dstr('2026-07-31', 'ml'), '31/07/2026'); // same in ML
+  assert.strictEqual(dstr('2026-01-05', 'en'), '05/01/2026'); // zero-padded
+  assert.strictEqual(dstr('2026-12-09T00:00'), '09/12/2026'); // tolerates time suffix
   assert.strictEqual(dstr(null, 'en'), '');
+  assert.strictEqual(dstr('', 'en'), '');
+});
+
+ok('dstrFromMillis formats DD/MM/YYYY from a timestamp', () => {
+  const ms = new Date(2026, 0, 5, 14, 30).getTime(); // 5 Jan 2026 local
+  assert.strictEqual(dstrFromMillis(ms), '05/01/2026');
 });
 
 /* ---------- v3: month bucketing ---------- */

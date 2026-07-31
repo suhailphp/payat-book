@@ -41,18 +41,22 @@ export const bal = (txns: Txn[], pid: number): number =>
 export const eventTotal = (txns: Txn[], eid: number): number =>
   txns.filter((x) => x.eventId === eid).reduce((s, x) => s + x.amount, 0);
 
-export const dstr = (iso: string | null | undefined, lang: string): string => {
+/* Display format is DD/MM/YYYY in both languages. Storage stays the
+   normalized YYYY-MM-DD ISO string; lang is accepted for call-site
+   compatibility but no longer affects the output. */
+export const dstr = (iso: string | null | undefined, _lang?: string): string => {
   if (!iso) return '';
-  const d = new Date(iso + 'T00:00');
-  try {
-    return d.toLocaleDateString(lang === 'ml' ? 'ml-IN' : 'en-IN', {
-      day: 'numeric',
-      month: 'short',
-      year: 'numeric',
-    });
-  } catch {
-    return iso;
-  }
+  const m = /^(\d{4})-(\d{2})-(\d{2})/.exec(iso);
+  if (!m) return iso;
+  return `${m[3]}/${m[2]}/${m[1]}`;
+};
+
+/* DD/MM/YYYY from a millisecond timestamp, using local date parts
+   (for the last-backup line, which stores Date.now()). */
+export const dstrFromMillis = (ms: number): string => {
+  const d = new Date(ms);
+  const pad = (n: number) => String(n).padStart(2, '0');
+  return `${pad(d.getDate())}/${pad(d.getMonth() + 1)}/${d.getFullYear()}`;
 };
 
 /* Amount-suggestion chips: only offered when the prior balance runs in the

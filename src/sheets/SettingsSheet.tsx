@@ -2,6 +2,7 @@ import React from 'react';
 import { Linking, View } from 'react-native';
 import { useNavigation } from '@react-navigation/native';
 import { useData } from '../data';
+import { dstrFromMillis } from '../lib';
 import { exportBackup, pickBackup } from '../backup';
 import { C } from '../theme';
 import { Sheet } from '../components/Sheet';
@@ -117,7 +118,7 @@ export function SettingsSheet({ visible, onClose }: { visible: boolean; onClose:
       />
       <Txt size={13.5} color={C.inkSoft} style={{ marginTop: 14 }}>
         {meta.lastBackup
-          ? tp('lastBackup', { d: new Date(Number(meta.lastBackup)).toLocaleDateString('en-IN') })
+          ? tp('lastBackup', { d: dstrFromMillis(Number(meta.lastBackup)) })
           : t('noBackup')}
       </Txt>
     </Sheet>
