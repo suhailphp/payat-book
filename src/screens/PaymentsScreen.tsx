@@ -11,7 +11,7 @@ import { SettingsSheet } from '../sheets/SettingsSheet';
 import { PersonPickerSheet } from '../sheets/PersonPickerSheet';
 import { PersonFormSheet } from '../sheets/PersonFormSheet';
 import { EntrySheet, EntryCtx } from '../sheets/EntrySheet';
-import { confirm } from '../components/confirm';
+import { confirmSheet } from '../components/ConfirmSheet';
 import { toast } from '../components/Toast';
 import type { RootNav } from '../nav';
 
@@ -30,10 +30,11 @@ export function PaymentsScreen() {
   const recent = allPayments.slice(0, 5);
   const filtered = filterPayments(txns, people, q);
 
-  const delTxn = (id: number) => confirm(t('qDelEntry'), async () => {
+  const delTxn = async (id: number) => {
+    if (!(await confirmSheet({ message: t('qDelEntry'), destructive: true }))) return;
     await removeTxn(id);
     toast(t('tDeleted'));
-  });
+  };
 
   const paymentRow = (x: (typeof txns)[number], index: number, count: number, deletable: boolean) => {
     const p = people.find((pp) => pp.id === x.personId);

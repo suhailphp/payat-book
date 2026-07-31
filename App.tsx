@@ -16,6 +16,7 @@ import { DataProvider, useData } from './src/data';
 import { C, FONT } from './src/theme';
 import { HomeIcon, PeopleIcon, EnvIcon, PayHandsIcon } from './src/components/Icons';
 import { ToastHost } from './src/components/Toast';
+import { ConfirmHost } from './src/components/ConfirmSheet';
 import { OnboardingScreen } from './src/screens/OnboardingScreen';
 import { HomeScreen } from './src/screens/HomeScreen';
 import { PeopleScreen } from './src/screens/PeopleScreen';
@@ -105,6 +106,7 @@ export default function App() {
       <DataProvider>
         <StatusBar style="dark" />
         <Root />
+        <ConfirmHost />
         <ToastHost />
       </DataProvider>
     </SafeAreaProvider>

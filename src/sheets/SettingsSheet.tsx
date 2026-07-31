@@ -5,7 +5,7 @@ import { exportBackup, pickBackup } from '../backup';
 import { C } from '../theme';
 import { Sheet } from '../components/Sheet';
 import { Btn, Field, Seg, Txt } from '../components/UI';
-import { confirm } from '../components/confirm';
+import { confirmSheet } from '../components/ConfirmSheet';
 import { toast } from '../components/Toast';
 
 export function SettingsSheet({ visible, onClose }: { visible: boolean; onClose: () => void }) {
@@ -41,11 +41,15 @@ export function SettingsSheet({ visible, onClose }: { visible: boolean; onClose:
       toast(t('tBadFile'));
       return;
     }
-    confirm(tp('qRestore', { p: picked.people.length, t: picked.txns.length }), async () => {
-      await restoreAll(picked.people, picked.events, picked.txns);
-      onClose();
-      toast(t('tRestored'));
+    const ok = await confirmSheet({
+      message: tp('qRestore', { p: picked.people.length, t: picked.txns.length }),
+      confirmLabel: t('qRestoreBtn'),
+      destructive: false,
     });
+    if (!ok) return;
+    await restoreAll(picked.people, picked.events, picked.txns);
+    onClose();
+    toast(t('tRestored'));
   };
 
   return (

@@ -10,7 +10,7 @@ import { PlusIcon, TrashIcon } from '../components/Icons';
 import { PersonPickerSheet } from '../sheets/PersonPickerSheet';
 import { PersonFormSheet } from '../sheets/PersonFormSheet';
 import { EntrySheet, EntryCtx } from '../sheets/EntrySheet';
-import { confirm } from '../components/confirm';
+import { confirmSheet } from '../components/ConfirmSheet';
 import { toast } from '../components/Toast';
 import type { RootNav, RootParams } from '../nav';
 
@@ -61,17 +61,17 @@ export function EventScreen() {
     toast(open ? t('tFinished') : t('tReopened'));
   };
 
-  const delEvent = () =>
-    confirm(t('qDelPayat'), async () => {
-      await removeEvent(eid);
-      toast(t('tDeleted'));
-    });
+  const delEvent = async () => {
+    if (!(await confirmSheet({ message: t('qDelPayat'), destructive: true }))) return;
+    await removeEvent(eid);
+    toast(t('tDeleted'));
+  };
 
-  const delTxn = (id: number) =>
-    confirm(t('qDelEntry'), async () => {
-      await removeTxn(id);
-      toast(t('tDeleted'));
-    });
+  const delTxn = async (id: number) => {
+    if (!(await confirmSheet({ message: t('qDelEntry'), destructive: true }))) return;
+    await removeTxn(id);
+    toast(t('tDeleted'));
+  };
 
   const sections = [
     { key: 'pending' as const, title: t('pendingSec'), data: pending as SectionItem[] },

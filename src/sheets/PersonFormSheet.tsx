@@ -3,7 +3,7 @@ import { useData } from '../data';
 import type { Person } from '../lib';
 import { Sheet } from '../components/Sheet';
 import { Btn, Field } from '../components/UI';
-import { confirm } from '../components/confirm';
+import { confirmSheet } from '../components/ConfirmSheet';
 import { toast } from '../components/Toast';
 
 /* Add / edit person sheet. `quiet` suppresses the "Person added" toast when
@@ -53,18 +53,13 @@ export function PersonFormSheet({
     }
   };
 
-  const del = () => {
+  const del = async () => {
     if (!person) return;
-    confirm(
-      t('qDelPerson'),
-      async () => {
-        await removePerson(person.id);
-        onClose();
-        toast(t('tDeleted'));
-        onDeleted?.();
-      },
-      t('delPerson')
-    );
+    if (!(await confirmSheet({ message: t('qDelPerson'), destructive: true }))) return;
+    await removePerson(person.id);
+    onClose();
+    toast(t('tDeleted'));
+    onDeleted?.();
   };
 
   return (
