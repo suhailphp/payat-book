@@ -2,15 +2,28 @@ import React, { useState } from 'react';
 import { Pressable, ScrollView, StyleSheet, View } from 'react-native';
 import { useNavigation } from '@react-navigation/native';
 import { useData } from '../data';
-import { dstr, eventTotal, fmt, monthBuckets, monthKey, monthTotals, today, topBalances, totals } from '../lib';
+import {
+  bubbleItems,
+  daysSince,
+  dstr,
+  eventTotal,
+  fmt,
+  monthBuckets,
+  monthKey,
+  monthTotals,
+  today,
+  topBalances,
+  totals,
+  waitingLongest,
+} from '../lib';
 import { C, RADIUS, SHADOW } from '../theme';
 import { KasavuHeader } from '../components/Header';
 import { Avatar, BalChip, Btn, Card, Empty, Row, SecTitle, Txt } from '../components/UI';
-import { HostIcon, PayHandsIcon, PeopleIcon, PlusIcon, SaveIcon } from '../components/Icons';
+import { PlusIcon } from '../components/Icons';
 import { MonthChart } from '../components/MonthChart';
+import { BalanceBubbles } from '../components/BalanceBubbles';
 import { CountUp, StaggerIn } from '../components/anim';
 import { SettingsSheet } from '../sheets/SettingsSheet';
-import { HostSheet } from '../sheets/HostSheet';
 import { PersonPickerSheet } from '../sheets/PersonPickerSheet';
 import { PersonFormSheet } from '../sheets/PersonFormSheet';
 import { EntrySheet, EntryCtx } from '../sheets/EntrySheet';
@@ -23,11 +36,6 @@ export function HomeScreen() {
   const nav = useNavigation<RootNav>();
   const { t, tp, lang, people, events, txns, meta, setMeta } = useData();
   const [settingsOpen, setSettingsOpen] = useState(false);
-  const [hostOpen, setHostOpen] = useState(false);
-  const [addPersonOpen, setAddPersonOpen] = useState(false);
-  /* pay chain */
-  const [payPickOpen, setPayPickOpen] = useState(false);
-  const [payNewPersonOpen, setPayNewPersonOpen] = useState(false);
   /* ongoing-payat collection chain */
   const [collectFor, setCollectFor] = useState<number | null>(null);
   const [collectNewFor, setCollectNewFor] = useState<number | null>(null);
@@ -38,6 +46,8 @@ export function HomeScreen() {
   const thisMonth = monthTotals(txns, monthKey(today()));
   const buckets = monthBuckets(txns, today(), 6);
   const top = topBalances(people, txns, 5);
+  const bubbles = bubbleItems(people, txns, 8);
+  const waiting = waitingLongest(people, txns, 3);
   const ongoing = events
     .filter((e) => e.type === 'hosted' && e.status !== 'closed')
     .sort((a, b) => (b.date || '').localeCompare(a.date || '') || b.id - a.id)[0];
@@ -57,19 +67,6 @@ export function HomeScreen() {
       toast(tp('backupFailed', { e: String((e as Error)?.message ?? e) }));
     }
   };
-
-  const quickTile = (icon: React.ReactNode, label: string, onPress: () => void) => (
-    <Pressable
-      onPress={onPress}
-      style={({ pressed }) => [st.tile, pressed && { backgroundColor: '#DCE9E0' }]}
-      accessibilityLabel={label}
-    >
-      {icon}
-      <Txt w={600} size={13.5} color={C.greenDeep} style={{ textAlign: 'center', marginTop: 6 }}>
-        {label}
-      </Txt>
-    </Pressable>
-  );
 
   const topList = (list: typeof top.receive) => (
     <Card>
@@ -142,16 +139,40 @@ export function HomeScreen() {
         ) : null}
         </StaggerIn>
 
-        {/* 3 · quick actions */}
-        <StaggerIn index={ai++}>
-          <SecTitle>{t('quickActions')}</SecTitle>
-          <View style={st.tiles}>
-            {quickTile(<HostIcon size={26} color={C.green} />, t('hostBtn'), () => setHostOpen(true))}
-            {quickTile(<PayHandsIcon size={26} color={C.green} />, t('payBtn'), () => setPayPickOpen(true))}
-            {quickTile(<PeopleIcon size={26} color={C.green} />, t('addPerson'), () => setAddPersonOpen(true))}
-            {quickTile(<SaveIcon size={26} color={C.green} />, t('saveBackup'), backupNow)}
-          </View>
-        </StaggerIn>
+        {/* 3 · balance bubbles — the centerpiece */}
+        {bubbles.length ? (
+          <StaggerIn index={ai++}>
+            <SecTitle>{t('bubblesTitle')}</SecTitle>
+            <BalanceBubbles items={bubbles} onPressPerson={(id) => nav.navigate('Person', { id })} />
+          </StaggerIn>
+        ) : null}
+
+        {/* 3b · waiting longest */}
+        {waiting.length ? (
+          <StaggerIn index={ai++}>
+            <SecTitle>{t('pendingLong')}</SecTitle>
+            <Card>
+              {waiting.map((r, i) => (
+                <Row
+                  key={r.person.id}
+                  last={i === waiting.length - 1}
+                  onPress={() => nav.navigate('Person', { id: r.person.id })}
+                >
+                  <Avatar name={r.person.name} />
+                  <View style={{ flex: 1, minWidth: 0 }}>
+                    <Txt w={600} size={16.5} numberOfLines={1}>
+                      {r.person.name}
+                    </Txt>
+                    <Txt size={13.5} color={C.inkSoft} num>
+                      {tp('daysAgo', { d: daysSince(r.lastDate, today()) })}
+                    </Txt>
+                  </View>
+                  <BalChip b={r.b} settledLabel={t('settled')} />
+                </Row>
+              ))}
+            </Card>
+          </StaggerIn>
+        ) : null}
 
         {/* 4 · ongoing payat */}
         {ongoing ? (
@@ -283,28 +304,6 @@ export function HomeScreen() {
       </ScrollView>
 
       <SettingsSheet visible={settingsOpen} onClose={() => setSettingsOpen(false)} />
-      <HostSheet visible={hostOpen} onClose={() => setHostOpen(false)} onCreated={(id) => nav.navigate('Event', { id })} />
-      <PersonFormSheet visible={addPersonOpen} onClose={() => setAddPersonOpen(false)} />
-      {/* pay chain */}
-      <PersonPickerSheet
-        visible={payPickOpen}
-        title={t('whoPay')}
-        onClose={() => setPayPickOpen(false)}
-        onPick={(id) => {
-          setPayPickOpen(false);
-          setEntryCtx({ personId: id, dir: 'out' });
-        }}
-        onNew={() => {
-          setPayPickOpen(false);
-          setPayNewPersonOpen(true);
-        }}
-      />
-      <PersonFormSheet
-        visible={payNewPersonOpen}
-        onClose={() => setPayNewPersonOpen(false)}
-        quiet
-        onSaved={(id) => setEntryCtx({ personId: id, dir: 'out' })}
-      />
       {/* ongoing-payat collection chain */}
       <PersonPickerSheet
         visible={collectFor !== null}
@@ -358,18 +357,6 @@ const st = StyleSheet.create({
     width: 4,
     backgroundColor: C.gold,
     opacity: 0.85,
-  },
-  tiles: { flexDirection: 'row', flexWrap: 'wrap', gap: 10 },
-  tile: {
-    width: '48%',
-    flexGrow: 1,
-    minHeight: 88,
-    backgroundColor: C.greenTint,
-    borderRadius: 14,
-    alignItems: 'center',
-    justifyContent: 'center',
-    paddingVertical: 14,
-    paddingHorizontal: 10,
   },
   ongoing: {
     backgroundColor: C.paper,
