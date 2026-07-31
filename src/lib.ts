@@ -93,6 +93,28 @@ export const monthTotals = (txns: Txn[], key: string): { in: number; out: number
     { in: 0, out: 0 }
   );
 
+/* Overall position: totals to receive/give, people counts, and the net. */
+export const totals = (
+  people: Person[],
+  txns: Txn[]
+): { recv: number; give: number; cr: number; cg: number; net: number } => {
+  let recv = 0,
+    give = 0,
+    cr = 0,
+    cg = 0;
+  for (const p of people) {
+    const b = bal(txns, p.id);
+    if (b > 0) {
+      recv += b;
+      cr++;
+    } else if (b < 0) {
+      give -= b;
+      cg++;
+    }
+  }
+  return { recv, give, cr, cg, net: recv - give };
+};
+
 export type RankedBalance = { person: Person; b: number };
 
 /* Top positive balances (desc) and top negative balances (most owed first). */

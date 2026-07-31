@@ -78,6 +78,23 @@ export const PayHandsIcon = ({ size = 22, color = '#0A3F2A' }: P) => (
   </Svg>
 );
 
+/* Download-into-tray icon for backup */
+export const SaveIcon = ({ size = 26, color = '#0E5A3C' }: P) => (
+  <Svg {...base(size)} fill="none" stroke={color} strokeWidth={1.9} strokeLinecap="round" strokeLinejoin="round">
+    <Path d="M12 4v9M8.5 9.5L12 13l3.5-3.5" />
+    <Path d="M4.5 15v3a1.5 1.5 0 001.5 1.5h12a1.5 1.5 0 001.5-1.5v-3" />
+  </Svg>
+);
+
+/* Globe icon for the onboarding language toggle */
+export const GlobeIcon = ({ size = 24, color = '#0A3F2A' }: P) => (
+  <Svg {...base(size)} fill="none" stroke={color} strokeWidth={1.9}>
+    <Circle cx={12} cy={12} r={8.5} />
+    <Path d="M3.5 12h17" />
+    <Path d="M12 3.5c2.6 2.4 3.9 5.2 3.9 8.5s-1.3 6.1-3.9 8.5M12 3.5C9.4 5.9 8.1 8.7 8.1 12s1.3 6.1 3.9 8.5" />
+  </Svg>
+);
+
 export const WaIcon = ({ size = 22, color = '#fff' }: P) => (
   <Svg {...base(size)} fill={color}>
     <Path d="M12 3a9 9 0 00-7.7 13.6L3 21l4.5-1.2A9 9 0 1012 3zm0 2a7 7 0 110 14 7 7 0 01-3.5-.9l-.4-.2-2.4.6.6-2.3-.2-.4A7 7 0 0112 5zm-2.4 3.6c-.2 0-.5 0-.7.3-.2.3-.9.9-.9 2.1s.9 2.5 1 2.6c.1.2 1.8 2.9 4.5 3.9 2.2.9 2.7.7 3.1.7.5-.1 1.5-.6 1.7-1.2.2-.6.2-1.1.2-1.2-.1-.1-.2-.2-.5-.3l-1.7-.8c-.2-.1-.4-.1-.6.1l-.8 1c-.1.2-.3.2-.5.1-.3-.1-1.1-.4-2.1-1.3-.8-.7-1.3-1.5-1.4-1.8-.1-.3 0-.4.1-.5l.4-.5c.1-.2.2-.3.3-.5.1-.2 0-.4 0-.5l-.8-1.9c-.2-.4-.4-.4-.6-.4h-.2z" />
