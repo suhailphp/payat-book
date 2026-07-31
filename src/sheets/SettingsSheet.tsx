@@ -4,12 +4,24 @@ import { useData } from '../data';
 import { exportBackup, pickBackup } from '../backup';
 import { C } from '../theme';
 import { Sheet } from '../components/Sheet';
-import { Btn, Seg, Txt } from '../components/UI';
+import { Btn, Field, Seg, Txt } from '../components/UI';
 import { confirm } from '../components/confirm';
 import { toast } from '../components/Toast';
 
 export function SettingsSheet({ visible, onClose }: { visible: boolean; onClose: () => void }) {
   const { t, tp, lang, setLang, people, events, txns, meta, setMeta, restoreAll } = useData();
+  const [name, setName] = React.useState(meta.ownerName ?? '');
+
+  React.useEffect(() => {
+    if (visible) setName(meta.ownerName ?? '');
+  }, [visible, meta.ownerName]);
+
+  const saveName = async () => {
+    const n = name.trim();
+    if (!n || n === meta.ownerName) return;
+    await setMeta('ownerName', n);
+    toast(t('tSaved'));
+  };
 
   const doExport = async () => {
     try {
@@ -38,6 +50,14 @@ export function SettingsSheet({ visible, onClose }: { visible: boolean; onClose:
 
   return (
     <Sheet visible={visible} onClose={onClose} title={t('settingsT')}>
+      <Field
+        label={t('yourName')}
+        value={name}
+        onChangeText={setName}
+        onBlur={saveName}
+        onSubmitEditing={saveName}
+        autoCorrect={false}
+      />
       <View style={{ marginBottom: 14 }}>
         <Txt w={700} size={13} color={C.inkSoft} style={{ letterSpacing: 0.5, textTransform: 'uppercase', marginBottom: 5 }}>
           {t('language')}

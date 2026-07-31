@@ -18,7 +18,7 @@ export function PersonScreen() {
   const nav = useNavigation<RootNav>();
   const route = useRoute<RouteProp<RootParams, 'Person'>>();
   const pid = route.params.id;
-  const { t, tp, lang, people, events, txns, removeTxn } = useData();
+  const { t, tp, lang, people, events, txns, meta, removeTxn } = useData();
   const [editOpen, setEditOpen] = useState(false);
   const [entryCtx, setEntryCtx] = useState<EntryCtx | null>(null);
 
@@ -77,7 +77,12 @@ export function PersonScreen() {
           >
             {fmt(b)}
           </Txt>
-          <Btn label={t('shareWA')} kind="wa" icon={<WaIcon />} onPress={() => shareOnWhatsApp(p, txns, lang)} />
+          <Btn
+            label={t('shareWA')}
+            kind="wa"
+            icon={<WaIcon />}
+            onPress={() => shareOnWhatsApp(p, txns, lang, meta.ownerName)}
+          />
           <View style={{ flexDirection: 'row', gap: 10 }}>
             <Btn flex label={t('theyGave')} kind="ghost" onPress={() => setEntryCtx({ personId: pid, dir: 'in' })} />
             <Btn flex label={t('iGave')} kind="ghost" onPress={() => setEntryCtx({ personId: pid, dir: 'out' })} />

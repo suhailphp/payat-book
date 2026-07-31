@@ -16,6 +16,7 @@ import { DataProvider, useData } from './src/data';
 import { C, FONT } from './src/theme';
 import { HomeIcon, PeopleIcon, EnvIcon, PayHandsIcon } from './src/components/Icons';
 import { ToastHost } from './src/components/Toast';
+import { OnboardingScreen } from './src/screens/OnboardingScreen';
 import { HomeScreen } from './src/screens/HomeScreen';
 import { PeopleScreen } from './src/screens/PeopleScreen';
 import { PersonScreen } from './src/screens/PersonScreen';
@@ -71,7 +72,7 @@ const navTheme = {
 };
 
 function Root() {
-  const { ready } = useData();
+  const { ready, meta } = useData();
   const [fontsLoaded] = useFonts({
     BalooChettan2_400Regular,
     BalooChettan2_500Medium,
@@ -84,6 +85,8 @@ function Root() {
   }, [ready, fontsLoaded]);
 
   if (!ready || !fontsLoaded) return null;
+
+  if (!meta.ownerName) return <OnboardingScreen />;
 
   return (
     <NavigationContainer theme={navTheme}>
