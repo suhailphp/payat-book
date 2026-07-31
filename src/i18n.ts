@@ -59,10 +59,17 @@ en:{
   emptyPayT:"No payments yet", emptyPayD:"What you give at others' payatts shows here.",
   welcome:"Welcome to Payat Book", whatsYourName:"What's your name?",
   nameHint:"Shown on your book and in WhatsApp statements.", getStarted:"Start",
-  yourName:"Your name", greeting:"Salam, {n}",
+  yourName:"Your name", greeting:"Welcome, {n}",
   thisMonth:"This month", statReceived:"Received", statGiven:"Given",
   last6Months:"Last 6 months",
-  topToReceive:"To receive — top", topToGive:"To give — top"
+  topToReceive:"To receive — top", topToGive:"To give — top",
+  qConfirmTitle:"Are you sure?", qDelete:"Delete", qCancel:"Cancel", qRestoreBtn:"Restore",
+  showMore:"Show more",
+  quickActions:"Quick actions",
+  netReceive:"Net to receive: {a}", netGive:"Net to give: {a}",
+  ongoingPayat:"Ongoing payat",
+  backupFailed:"Backup failed: {e}",
+  langToggle:"Change language"
 },
 ml:{
   tabBook:"ബുക്ക്", tabPeople:"ആളുകൾ", tabPayatts:"പയറ്റുകൾ",
@@ -120,10 +127,17 @@ ml:{
   emptyPayT:"പേയ്മെന്റുകൾ ഇല്ല", emptyPayD:"മറ്റുള്ളവരുടെ പയറ്റിന് കൊടുക്കുന്നത് ഇവിടെ കാണാം.",
   welcome:"പയറ്റ് ബുക്കിലേക്ക് സ്വാഗതം", whatsYourName:"നിങ്ങളുടെ പേര് എന്താണ്?",
   nameHint:"നിങ്ങളുടെ ബുക്കിലും വാട്സ്ആപ്പ് സ്റ്റേറ്റ്മെന്റിലും കാണിക്കും.", getStarted:"തുടങ്ങുക",
-  yourName:"നിങ്ങളുടെ പേര്", greeting:"സലാം, {n}",
+  yourName:"നിങ്ങളുടെ പേര്", greeting:"സ്വാഗതം, {n}",
   thisMonth:"ഈ മാസം", statReceived:"കിട്ടിയത്", statGiven:"കൊടുത്തത്",
   last6Months:"കഴിഞ്ഞ 6 മാസം",
-  topToReceive:"കൂടുതൽ കിട്ടാനുള്ളവർ", topToGive:"കൂടുതൽ കൊടുക്കാനുള്ളവർ"
+  topToReceive:"കൂടുതൽ കിട്ടാനുള്ളവർ", topToGive:"കൂടുതൽ കൊടുക്കാനുള്ളവർ",
+  qConfirmTitle:"ഉറപ്പാണോ?", qDelete:"ഒഴിവാക്കുക", qCancel:"വേണ്ട", qRestoreBtn:"തിരിച്ചെടുക്കുക",
+  showMore:"കൂടുതൽ കാണുക",
+  quickActions:"പെട്ടെന്നുള്ള കാര്യങ്ങൾ",
+  netReceive:"മൊത്തം കിട്ടാനുള്ളത്: {a}", netGive:"മൊത്തം കൊടുക്കാനുള്ളത്: {a}",
+  ongoingPayat:"നടക്കുന്ന പയറ്റ്",
+  backupFailed:"ബാക്കപ്പ് പരാജയപ്പെട്ടു: {e}",
+  langToggle:"ഭാഷ മാറ്റുക"
 }};
 
 export const tFor = (lang: Lang) => (k: string): string =>
