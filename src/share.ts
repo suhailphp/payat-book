@@ -25,7 +25,7 @@ export function buildShareText(p: Person, txns: Txn[], lang: Lang, owner?: strin
         ? `*${tp('shareBalMine', { a: fmt(b) })}*`
         : `*${t('shareBalZero')}*`;
   const title = owner ? tp('shareTitleOwner', { n: owner }) : tp('shareTitle', { n: p.name });
-  return `📒 *${title}*\n\n${hist.join('\n')}\n\n${balLine}`;
+  return `📒 *${title}*\n${tp('shareFor', { n: p.name })}\n\n${hist.join('\n')}\n\n${balLine}`;
 }
 
 export async function shareOnWhatsApp(p: Person, txns: Txn[], lang: Lang, owner?: string): Promise<void> {

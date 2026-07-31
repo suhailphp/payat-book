@@ -110,24 +110,29 @@ ok('non-backup files rejected', () => {
 
 /* ---------- share text ---------- */
 
-ok('share text EN', () => {
-  const text = buildShareText(riyas, txns, 'en');
+ok('share text EN (v5 format: title, Account line, history, balance)', () => {
+  const text = buildShareText(riyas, txns, 'en', 'Hameed');
   const lines = text.split('\n');
-  assert.strictEqual(lines[0], '📒 *Payat Book — Riyas KP*');
-  assert.ok(lines[2].includes('You gave ₹1,000'));
-  assert.ok(lines[3].includes('I gave ₹2,000 (wedding payat)'));
-  assert.strictEqual(lines[5], '*You have ₹1,000 to give.*');
+  assert.strictEqual(lines[0], '📒 *Hameed — Payat Book*');
+  assert.strictEqual(lines[1], 'Account: Riyas KP');
+  assert.strictEqual(lines[2], '');
+  assert.ok(lines[3].includes('You gave ₹1,000'));
+  assert.ok(lines[4].includes('I gave ₹2,000 (wedding payat)'));
+  assert.strictEqual(lines[6], '*You have ₹1,000 to give.*');
 });
 
-ok('share text ML balance line', () => {
-  const text = buildShareText(riyas, txns, 'ml');
-  assert.ok(text.startsWith('📒 *പയറ്റ് ബുക്ക് — Riyas KP*'));
+ok('share text ML carries both names and balance line', () => {
+  const text = buildShareText(riyas, txns, 'ml', 'ഹമീദ്');
+  const lines = text.split('\n');
+  assert.strictEqual(lines[0], '📒 *ഹമീദ് — പയറ്റ് ബുക്ക്*');
+  assert.strictEqual(lines[1], 'കണക്ക്: Riyas KP');
   assert.ok(text.includes('*നിങ്ങൾ ₹1,000 തരാനുണ്ട്.*'));
 });
 
-ok('share text with owner name (v3)', () => {
-  assert.ok(buildShareText(riyas, txns, 'en', 'Hameed').startsWith('📒 *Hameed — Payat Book*'));
-  assert.ok(buildShareText(riyas, txns, 'ml', 'ഹമീദ്').startsWith('📒 *ഹമീദ് — പയറ്റ് ബുക്ക്*'));
+ok('share text without owner falls back to old title, still has Account line', () => {
+  const lines = buildShareText(riyas, txns, 'en').split('\n');
+  assert.strictEqual(lines[0], '📒 *Payat Book — Riyas KP*');
+  assert.strictEqual(lines[1], 'Account: Riyas KP');
 });
 
 ok('share text settled + I-owe variants', () => {
