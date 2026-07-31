@@ -44,7 +44,6 @@ export function PersonScreen() {
   return (
     <View style={{ flex: 1, backgroundColor: C.cotton }}>
       <KasavuHeader
-        title={p.name}
         onBack={() => nav.goBack()}
         actions={
           <Pressable

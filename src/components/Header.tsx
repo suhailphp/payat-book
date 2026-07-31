@@ -1,21 +1,18 @@
 import React from 'react';
-import { Image, Pressable, StyleSheet, View } from 'react-native';
+import { Pressable, StyleSheet, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { C } from '../theme';
-import { Txt } from './UI';
+import { BrandLogo } from './BrandLogo';
 import { BackIcon, GearIcon } from './Icons';
 
-/* White header crowned with the double gold "kasavu" stripe:
-   a 4px gold bar and a 1px gold hairline beneath it. */
+/* White header crowned with the double gold "kasavu" stripe: a 4px gold bar
+   and a 1px gold hairline beneath it. Every screen shows the brand logo;
+   detail screens add the back arrow, titles live in the content hero. */
 export function KasavuHeader({
-  title,
-  logo,
   onBack,
   onGear,
   actions,
 }: {
-  title?: string;
-  logo?: boolean;
   onBack?: () => void;
   onGear?: () => void;
   actions?: React.ReactNode;
@@ -33,15 +30,9 @@ export function KasavuHeader({
             <BackIcon />
           </Pressable>
         ) : null}
-        {logo ? (
-          <View style={{ flex: 1, alignItems: 'flex-start' }}>
-            <Image source={require('../../assets/logo-h.png')} style={st.logo} resizeMode="contain" />
-          </View>
-        ) : (
-          <Txt w={700} size={20} color={C.greenDeep} numberOfLines={1} style={{ flex: 1, letterSpacing: 0.2 }}>
-            {title}
-          </Txt>
-        )}
+        <View style={{ flex: 1, alignItems: 'flex-start' }}>
+          <BrandLogo />
+        </View>
         {onGear ? (
           <Pressable
             onPress={onGear}
@@ -71,7 +62,6 @@ const st = StyleSheet.create({
     gap: 8,
     minHeight: 56,
   },
-  logo: { height: 38, width: 120 },
   hbtn: { width: 44, height: 44, borderRadius: 12, alignItems: 'center', justifyContent: 'center' },
   kasavu: { height: 7, backgroundColor: 'transparent' },
   kasavuBar: { height: 4, backgroundColor: C.gold },

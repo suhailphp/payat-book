@@ -51,7 +51,7 @@ export function HomeScreen() {
 
   return (
     <View style={{ flex: 1, backgroundColor: C.cotton }}>
-      <KasavuHeader logo onGear={() => setSettingsOpen(true)} />
+      <KasavuHeader onGear={() => setSettingsOpen(true)} />
       <ScrollView contentContainerStyle={st.main}>
         {/* the "book spread": To Receive | To Give with a gold spine */}
         <View style={st.spread}>
