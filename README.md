@@ -48,13 +48,22 @@ eas build -p android --profile preview
 
 The `preview` profile in `eas.json` produces an installable `.apk` (rather than an `.aab`). Download the artifact link when the build finishes and install it on the phone.
 
-**Option B — local build (needs Android SDK + JDK 17):**
+**Option B — local build (no Expo account; needs Android Studio):**
 
 ```bash
-npx expo run:android --variant release
+npx expo prebuild -p android          # generates android/ (gitignored)
+cd android && ./gradlew assembleRelease
+# → android/app/build/outputs/apk/release/app-release.apk
 ```
 
-This generates the native `android/` project and builds `android/app/build/outputs/apk/release/app-release.apk`.
+Release signing expects `android/app/payat-release.keystore` plus
+`PAYAT_RELEASE_*` entries in `android/gradle.properties` (both gitignored —
+kept only on the build machine; back up the keystore and its password
+outside the repo). If `android/` is ever regenerated with
+`prebuild --clean`, re-add the `signingConfigs.release` block in
+`android/app/build.gradle` and the gradle.properties entries.
+Use Android Studio's bundled JDK: `JAVA_HOME="/Applications/Android
+Studio.app/Contents/jbr/Contents/Home"`.
 
 ## Balance model
 

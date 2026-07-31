@@ -101,6 +101,14 @@ export const GlobeIcon = ({ size = 24, color = '#0A3F2A' }: P) => (
   </Svg>
 );
 
+export const CalendarIcon = ({ size = 20, color = '#5C6657' }: P) => (
+  <Svg {...base(size)} fill="none" stroke={color} strokeWidth={1.9} strokeLinecap="round">
+    <Rect x={3.5} y={5} width={17} height={15.5} rx={2.5} />
+    <Path d="M3.5 9.5h17M8 2.8v4M16 2.8v4" />
+    <Path d="M7.5 13.5h.5M11.75 13.5h.5M16 13.5h.5M7.5 17h.5M11.75 17h.5" />
+  </Svg>
+);
+
 export const ChevronRightIcon = ({ size = 20, color = '#5C6657' }: P) => (
   <Svg {...base(size)} fill="none" stroke={color} strokeWidth={2}>
     <Path d="M9 5l7 7-7 7" />

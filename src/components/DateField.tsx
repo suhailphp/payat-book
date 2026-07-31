@@ -1,16 +1,20 @@
-import React, { useEffect, useState } from 'react';
-import { Platform, Pressable, StyleSheet, TextInput, View } from 'react-native';
+import React, { useState } from 'react';
+import { Platform, Pressable, StyleSheet, View } from 'react-native';
 import DateTimePicker from '@react-native-community/datetimepicker';
 import { dstr } from '../lib';
 import type { Lang } from '../i18n';
 import { C, FONT } from '../theme';
 import { Txt } from './UI';
+import { CalendarIcon } from './Icons';
 
 const isoLocal = (d: Date) =>
   `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
 
-/* Date field: native opens the platform date picker; web falls back to a
-   plain YYYY-MM-DD input (the community datetimepicker throws on web). */
+/* The one date input for the whole app. Value in/out is always the
+   normalized YYYY-MM-DD string we store.
+   Native: themed field showing the localized date (dstr) with a calendar
+   icon; tap opens the platform date picker.
+   Web: <input type="date"> styled to match the themed fields. */
 export function DateField({
   label,
   value,
@@ -23,9 +27,6 @@ export function DateField({
   lang: Lang;
 }) {
   const [showPicker, setShowPicker] = useState(false);
-  const [text, setText] = useState(value);
-
-  useEffect(() => setText(value), [value]);
 
   return (
     <View style={{ marginBottom: 14 }}>
@@ -33,20 +34,34 @@ export function DateField({
         {label}
       </Txt>
       {Platform.OS === 'web' ? (
-        <TextInput
-          value={text}
-          onChangeText={(v) => {
-            setText(v);
-            if (/^\d{4}-\d{2}-\d{2}$/.test(v)) onChange(v);
+        <input
+          type="date"
+          value={value}
+          onChange={(e) => {
+            if (e.target.value) onChange(e.target.value);
           }}
-          placeholder="YYYY-MM-DD"
-          placeholderTextColor={C.inkSoft}
-          style={st.input}
+          style={{
+            backgroundColor: C.cotton,
+            border: `1.5px solid ${C.line}`,
+            borderRadius: 12,
+            padding: '13px 14px',
+            fontSize: 17,
+            fontFamily: `${FONT.medium}, sans-serif`,
+            color: C.ink,
+            width: '100%',
+            boxSizing: 'border-box',
+            outline: 'none',
+          }}
         />
       ) : (
         <>
-          <Pressable onPress={() => setShowPicker(true)} style={st.input}>
+          <Pressable
+            onPress={() => setShowPicker(true)}
+            accessibilityLabel={label}
+            style={({ pressed }) => [st.field, pressed && { borderColor: C.green }]}
+          >
             <Txt num>{dstr(value, lang)}</Txt>
+            <CalendarIcon />
           </Pressable>
           {showPicker ? (
             <DateTimePicker
@@ -65,15 +80,15 @@ export function DateField({
 }
 
 const st = StyleSheet.create({
-  input: {
+  field: {
     backgroundColor: C.cotton,
     borderWidth: 1.5,
     borderColor: C.line,
     borderRadius: 12,
     paddingVertical: 13,
     paddingHorizontal: 14,
-    fontSize: 17,
-    fontFamily: FONT.medium,
-    color: C.ink,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
   },
 });

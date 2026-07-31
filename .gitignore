@@ -40,3 +40,7 @@ yarn-error.*
 /ios
 /android
 .testbuild/
+
+# release signing — never commit
+*.keystore
+android/gradle.properties
