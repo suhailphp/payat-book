@@ -1,4 +1,4 @@
-import type { NavigatorScreenParams } from '@react-navigation/native';
+import { createNavigationContainerRef, NavigatorScreenParams } from '@react-navigation/native';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 
 export type TabParams = {
@@ -12,6 +12,10 @@ export type RootParams = {
   Tabs: NavigatorScreenParams<TabParams> | undefined;
   Person: { id: number };
   Event: { id: number };
+  About: undefined;
 };
 
 export type RootNav = NativeStackNavigationProp<RootParams>;
+
+/* container ref so non-screen code (notification taps) can navigate */
+export const navigationRef = createNavigationContainerRef<RootParams>();

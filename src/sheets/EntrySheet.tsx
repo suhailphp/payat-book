@@ -11,7 +11,15 @@ import { toast } from '../components/Toast';
 export type EntryCtx = { personId: number; dir: 'in' | 'out'; eventId?: number };
 
 /* Amount sheet: amount + close-balance/double suggestion chips, date, note. */
-export function EntrySheet({ ctx, onClose }: { ctx: EntryCtx | null; onClose: () => void }) {
+export function EntrySheet({
+  ctx,
+  onClose,
+  onSaved,
+}: {
+  ctx: EntryCtx | null;
+  onClose: () => void;
+  onSaved?: (txnId: number) => void;
+}) {
   const { t, tp, lang, people, txns, addTxn } = useData();
   const [amount, setAmount] = useState('');
   const [date, setDate] = useState(today());
@@ -37,7 +45,7 @@ export function EntrySheet({ ctx, onClose }: { ctx: EntryCtx | null; onClose: ()
       toast(t('tEnterAmount'));
       return;
     }
-    await addTxn({
+    const txnId = await addTxn({
       personId: ctx.personId,
       eventId: ctx.eventId ?? null,
       dir: ctx.dir,
@@ -47,6 +55,7 @@ export function EntrySheet({ ctx, onClose }: { ctx: EntryCtx | null; onClose: ()
     });
     onClose();
     toast(t('tEntry'));
+    onSaved?.(txnId);
   };
 
   return (

@@ -19,12 +19,15 @@ import { ToastHost } from './src/components/Toast';
 import { ConfirmHost } from './src/components/ConfirmSheet';
 import { OnboardingScreen } from './src/screens/OnboardingScreen';
 import { HomeScreen } from './src/screens/HomeScreen';
+import { AboutScreen } from './src/screens/AboutScreen';
 import { PeopleScreen } from './src/screens/PeopleScreen';
 import { PersonScreen } from './src/screens/PersonScreen';
 import { PayattsScreen } from './src/screens/PayattsScreen';
 import { PaymentsScreen } from './src/screens/PaymentsScreen';
 import { EventScreen } from './src/screens/EventScreen';
-import type { RootParams, TabParams } from './src/nav';
+import { navigationRef, RootParams, TabParams } from './src/nav';
+import { notificationsSupported, setupNotifications } from './src/notifications';
+import * as ExpoNotifications from 'expo-notifications';
 
 SplashScreen.preventAutoHideAsync().catch(() => {});
 
@@ -72,6 +75,15 @@ const navTheme = {
   colors: { ...DefaultTheme.colors, background: C.cotton, card: C.paper, primary: C.green },
 };
 
+/* A tapped reminder lands on the Payments tab (where invitations live). */
+function goToPayments() {
+  if (navigationRef.isReady()) {
+    navigationRef.navigate('Tabs', { screen: 'PaymentsTab' });
+  } else {
+    setTimeout(goToPayments, 400);
+  }
+}
+
 function Root() {
   const { ready, meta } = useData();
   const [fontsLoaded] = useFonts({
@@ -85,16 +97,31 @@ function Root() {
     if (ready && fontsLoaded) SplashScreen.hideAsync().catch(() => {});
   }, [ready, fontsLoaded]);
 
+  useEffect(() => {
+    if (!notificationsSupported) return;
+    setupNotifications().catch(() => {});
+    /* warm start: user taps a reminder while the app is alive */
+    const sub = ExpoNotifications.addNotificationResponseReceivedListener(() => goToPayments());
+    /* cold start: app launched from a reminder tap */
+    ExpoNotifications.getLastNotificationResponseAsync?.()
+      .then((r) => {
+        if (r) goToPayments();
+      })
+      .catch(() => {});
+    return () => sub.remove();
+  }, []);
+
   if (!ready || !fontsLoaded) return null;
 
   if (!meta.ownerName) return <OnboardingScreen />;
 
   return (
-    <NavigationContainer theme={navTheme}>
+    <NavigationContainer ref={navigationRef} theme={navTheme}>
       <Stack.Navigator screenOptions={{ headerShown: false }}>
         <Stack.Screen name="Tabs" component={Tabs} />
         <Stack.Screen name="Person" component={PersonScreen} />
         <Stack.Screen name="Event" component={EventScreen} />
+        <Stack.Screen name="About" component={AboutScreen} />
       </Stack.Navigator>
     </NavigationContainer>
   );

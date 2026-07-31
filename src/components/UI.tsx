@@ -101,9 +101,9 @@ export function BalChip({ b, settledLabel }: { b: number; settledLabel: string }
   );
 }
 
-export function StatusChip({ label, kind }: { label: string; kind: 'gold' | 'pos' | 'zero' }) {
-  const bg = kind === 'gold' ? C.goldSoft : kind === 'pos' ? C.greenTint : C.cotton;
-  const fg = kind === 'gold' ? C.greenDeep : kind === 'pos' ? C.greenDeep : C.inkSoft;
+export function StatusChip({ label, kind }: { label: string; kind: 'gold' | 'pos' | 'zero' | 'neg' }) {
+  const bg = kind === 'gold' ? C.goldSoft : kind === 'pos' ? C.greenTint : kind === 'neg' ? C.redTint : C.cotton;
+  const fg = kind === 'gold' ? C.greenDeep : kind === 'pos' ? C.greenDeep : kind === 'neg' ? C.red : C.inkSoft;
   return (
     <View
       style={[

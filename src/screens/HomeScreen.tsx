@@ -11,14 +11,16 @@ import {
   monthBuckets,
   monthKey,
   monthTotals,
+  relativeInvLabel,
   today,
   topBalances,
   totals,
+  urgentInvitation,
   waitingLongest,
 } from '../lib';
 import { C, RADIUS, SHADOW } from '../theme';
 import { KasavuHeader } from '../components/Header';
-import { Avatar, BalChip, Btn, Card, Empty, Row, SecTitle, Txt } from '../components/UI';
+import { Avatar, BalChip, Btn, Card, Empty, Row, SecTitle, StatusChip, Txt } from '../components/UI';
 import { PlusIcon } from '../components/Icons';
 import { MonthChart } from '../components/MonthChart';
 import { BalanceBubbles } from '../components/BalanceBubbles';
@@ -34,7 +36,7 @@ import type { RootNav } from '../nav';
 /* Book tab = the ledger dashboard: position, pending, recent, act fast. */
 export function HomeScreen() {
   const nav = useNavigation<RootNav>();
-  const { t, tp, lang, people, events, txns, meta, setMeta } = useData();
+  const { t, tp, lang, people, events, txns, invitations, meta, setMeta } = useData();
   const [settingsOpen, setSettingsOpen] = useState(false);
   /* ongoing-payat collection chain */
   const [collectFor, setCollectFor] = useState<number | null>(null);
@@ -48,6 +50,8 @@ export function HomeScreen() {
   const top = topBalances(people, txns, 5);
   const bubbles = bubbleItems(people, txns, 8);
   const waiting = waitingLongest(people, txns, 3);
+  const urgentInv = urgentInvitation(invitations, today());
+  const urgentHost = urgentInv ? people.find((p) => p.id === urgentInv.hostId) : null;
   const ongoing = events
     .filter((e) => e.type === 'hosted' && e.status !== 'closed')
     .sort((a, b) => (b.date || '').localeCompare(a.date || '') || b.id - a.id)[0];
@@ -60,7 +64,7 @@ export function HomeScreen() {
 
   const backupNow = async () => {
     try {
-      await exportBackup(people, events, txns);
+      await exportBackup(people, events, txns, invitations);
       await setMeta('lastBackup', String(Date.now()));
       toast(t('tBackupSaved'));
     } catch (e) {
@@ -171,6 +175,34 @@ export function HomeScreen() {
                 </Row>
               ))}
             </Card>
+          </StaggerIn>
+        ) : null}
+
+        {/* 3c · upcoming payat I was invited to (most urgent, ≤7 days or overdue) */}
+        {urgentInv && urgentHost ? (
+          <StaggerIn index={ai++}>
+            <SecTitle>{t('upcomingPayat')}</SecTitle>
+            <Pressable onPress={() => nav.navigate('Tabs', { screen: 'PaymentsTab' })}>
+              <View style={[st.ongoing, { flexDirection: 'row', alignItems: 'center', gap: 10 }]}>
+                <Avatar name={urgentHost.name} />
+                <View style={{ flex: 1, minWidth: 0 }}>
+                  <Txt w={700} size={17} numberOfLines={1}>
+                    {urgentHost.name}
+                  </Txt>
+                  <Txt size={13.5} color={C.inkSoft} numberOfLines={1}>
+                    {dstr(urgentInv.date, lang)}
+                    {urgentInv.note ? ` · ${urgentInv.note}` : ''}
+                  </Txt>
+                </View>
+                {(() => {
+                  const rel = relativeInvLabel(urgentInv.date, today());
+                  if (rel.kind === 'overdue') return <StatusChip kind="neg" label={tp('daysAgo', { d: rel.d })} />;
+                  if (rel.kind === 'today') return <StatusChip kind="gold" label={t('today')} />;
+                  if (rel.kind === 'tomorrow') return <StatusChip kind="gold" label={t('tomorrow')} />;
+                  return <StatusChip kind="gold" label={tp('daysLeft', { d: rel.d })} />;
+                })()}
+              </View>
+            </Pressable>
           </StaggerIn>
         ) : null}
 
