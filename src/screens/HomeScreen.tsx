@@ -8,6 +8,7 @@ import { KasavuHeader } from '../components/Header';
 import { Avatar, BalChip, Btn, Card, Empty, Row, SecTitle, Txt } from '../components/UI';
 import { HostIcon, PayHandsIcon, PeopleIcon, PlusIcon, SaveIcon } from '../components/Icons';
 import { MonthChart } from '../components/MonthChart';
+import { CountUp, StaggerIn } from '../components/anim';
 import { SettingsSheet } from '../sheets/SettingsSheet';
 import { HostSheet } from '../sheets/HostSheet';
 import { PersonPickerSheet } from '../sheets/PersonPickerSheet';
@@ -86,31 +87,33 @@ export function HomeScreen() {
     </Card>
   );
 
+  /* stagger index across the conditionally-rendered dashboard blocks */
+  let ai = 0;
+
   return (
     <View style={{ flex: 1, backgroundColor: C.cotton }}>
       <KasavuHeader onGear={() => setSettingsOpen(true)} />
       <ScrollView contentContainerStyle={st.main}>
         {/* 1 · greeting */}
         {meta.ownerName ? (
-          <View style={{ marginBottom: 14 }}>
+          <StaggerIn index={ai++} style={{ marginBottom: 14 }}>
             <Txt w={700} size={22} color={C.greenDeep}>
               {tp('greeting', { n: meta.ownerName })}
             </Txt>
             <Txt size={13.5} color={C.inkSoft} num>
               {dstr(today(), lang)}
             </Txt>
-          </View>
+          </StaggerIn>
         ) : null}
 
         {/* 2 · the book spread (signature — unchanged) + net line */}
+        <StaggerIn index={ai++}>
         <View style={st.spread}>
           <View style={st.page}>
             <Txt w={700} size={13} color={C.inkSoft} style={st.lbl}>
               {t('toReceive')}
             </Txt>
-            <Txt w={700} size={29} color={C.green} num style={{ marginTop: 2 }}>
-              {fmt(pos.recv)}
-            </Txt>
+            <CountUp value={pos.recv} format={fmt} w={700} size={29} color={C.green} style={{ marginTop: 2 }} />
             <Txt size={13} color={C.inkSoft} num>
               {pos.cr} {pos.cr === 1 ? t('ppl1') : t('ppl')}
             </Txt>
@@ -119,9 +122,7 @@ export function HomeScreen() {
             <Txt w={700} size={13} color={C.inkSoft} style={st.lbl}>
               {t('toGive')}
             </Txt>
-            <Txt w={700} size={29} color={C.red} num style={{ marginTop: 2 }}>
-              {fmt(pos.give)}
-            </Txt>
+            <CountUp value={pos.give} format={fmt} w={700} size={29} color={C.red} style={{ marginTop: 2 }} />
             <Txt size={13} color={C.inkSoft} num>
               {pos.cg} {pos.cg === 1 ? t('ppl1') : t('ppl')}
             </Txt>
@@ -139,19 +140,22 @@ export function HomeScreen() {
             {pos.net > 0 ? tp('netReceive', { a: fmt(pos.net) }) : tp('netGive', { a: fmt(pos.net) })}
           </Txt>
         ) : null}
+        </StaggerIn>
 
         {/* 3 · quick actions */}
-        <SecTitle>{t('quickActions')}</SecTitle>
-        <View style={st.tiles}>
-          {quickTile(<HostIcon size={26} color={C.green} />, t('hostBtn'), () => setHostOpen(true))}
-          {quickTile(<PayHandsIcon size={26} color={C.green} />, t('payBtn'), () => setPayPickOpen(true))}
-          {quickTile(<PeopleIcon size={26} color={C.green} />, t('addPerson'), () => setAddPersonOpen(true))}
-          {quickTile(<SaveIcon size={26} color={C.green} />, t('saveBackup'), backupNow)}
-        </View>
+        <StaggerIn index={ai++}>
+          <SecTitle>{t('quickActions')}</SecTitle>
+          <View style={st.tiles}>
+            {quickTile(<HostIcon size={26} color={C.green} />, t('hostBtn'), () => setHostOpen(true))}
+            {quickTile(<PayHandsIcon size={26} color={C.green} />, t('payBtn'), () => setPayPickOpen(true))}
+            {quickTile(<PeopleIcon size={26} color={C.green} />, t('addPerson'), () => setAddPersonOpen(true))}
+            {quickTile(<SaveIcon size={26} color={C.green} />, t('saveBackup'), backupNow)}
+          </View>
+        </StaggerIn>
 
         {/* 4 · ongoing payat */}
         {ongoing ? (
-          <>
+          <StaggerIn index={ai++}>
             <SecTitle>{t('ongoingPayat')}</SecTitle>
             <View style={st.ongoing}>
               <Pressable onPress={() => nav.navigate('Event', { id: ongoing.id })}>
@@ -176,62 +180,63 @@ export function HomeScreen() {
               </Pressable>
               <Btn label={t('addCollection')} icon={<PlusIcon />} onPress={() => setCollectFor(ongoing.id)} />
             </View>
-          </>
+          </StaggerIn>
         ) : null}
 
         {hasData ? (
           <>
             {/* 5 · this month */}
-            <SecTitle>{t('thisMonth')}</SecTitle>
-            <View style={{ flexDirection: 'row', gap: 10 }}>
-              <View style={[st.stat, { flex: 1 }]}>
-                <Txt w={700} size={12.5} color={C.inkSoft} style={st.lbl}>
-                  {t('statReceived')}
-                </Txt>
-                <Txt w={700} size={22} color={C.green} num>
-                  {fmt(thisMonth.in)}
-                </Txt>
+            <StaggerIn index={ai++}>
+              <SecTitle>{t('thisMonth')}</SecTitle>
+              <View style={{ flexDirection: 'row', gap: 10 }}>
+                <View style={[st.stat, { flex: 1 }]}>
+                  <Txt w={700} size={12.5} color={C.inkSoft} style={st.lbl}>
+                    {t('statReceived')}
+                  </Txt>
+                  <CountUp value={thisMonth.in} format={fmt} w={700} size={22} color={C.green} />
+                </View>
+                <View style={[st.stat, { flex: 1 }]}>
+                  <Txt w={700} size={12.5} color={C.inkSoft} style={st.lbl}>
+                    {t('statGiven')}
+                  </Txt>
+                  <CountUp value={thisMonth.out} format={fmt} w={700} size={22} color={C.red} />
+                </View>
               </View>
-              <View style={[st.stat, { flex: 1 }]}>
-                <Txt w={700} size={12.5} color={C.inkSoft} style={st.lbl}>
-                  {t('statGiven')}
-                </Txt>
-                <Txt w={700} size={22} color={C.red} num>
-                  {fmt(thisMonth.out)}
-                </Txt>
-              </View>
-            </View>
+            </StaggerIn>
 
             {/* 6 · last 6 months */}
-            <SecTitle>{t('last6Months')}</SecTitle>
-            <Card style={{ padding: 14 }}>
-              <MonthChart buckets={buckets} lang={lang} receivedLabel={t('statReceived')} givenLabel={t('statGiven')} />
-            </Card>
+            <StaggerIn index={ai++}>
+              <SecTitle>{t('last6Months')}</SecTitle>
+              <Card style={{ padding: 14 }}>
+                <MonthChart buckets={buckets} lang={lang} receivedLabel={t('statReceived')} givenLabel={t('statGiven')} />
+              </Card>
+            </StaggerIn>
 
             {/* 7 · top balances */}
             {top.receive.length ? (
-              <>
+              <StaggerIn index={ai++}>
                 <SecTitle>{t('topToReceive')}</SecTitle>
                 {topList(top.receive)}
                 {pos.cr > 5 ? (
                   <Btn label={t('showMore')} kind="ghost" onPress={() => nav.navigate('Tabs', { screen: 'PeopleTab' })} />
                 ) : null}
-              </>
+              </StaggerIn>
             ) : null}
             {top.give.length ? (
-              <>
+              <StaggerIn index={ai++}>
                 <SecTitle>{t('topToGive')}</SecTitle>
                 {topList(top.give)}
                 {pos.cg > 5 ? (
                   <Btn label={t('showMore')} kind="ghost" onPress={() => nav.navigate('Tabs', { screen: 'PeopleTab' })} />
                 ) : null}
-              </>
+              </StaggerIn>
             ) : null}
           </>
         ) : null}
 
         {/* 9 · backup banner */}
         {needBackup ? (
+          <StaggerIn index={ai++}>
           <View style={st.banner}>
             <Txt size={14.5}>📒 {t('keepSafe')} </Txt>
             <Pressable onPress={backupNow}>
@@ -240,9 +245,11 @@ export function HomeScreen() {
               </Txt>
             </Pressable>
           </View>
+          </StaggerIn>
         ) : null}
 
         {/* 8 · recent entries */}
+        <StaggerIn index={ai++}>
         <SecTitle>{t('recent')}</SecTitle>
         <Card>
           {recent.length ? (
@@ -272,6 +279,7 @@ export function HomeScreen() {
             <Empty title={t('emptyBookT')} desc={t('emptyBookD')} />
           )}
         </Card>
+        </StaggerIn>
       </ScrollView>
 
       <SettingsSheet visible={settingsOpen} onClose={() => setSettingsOpen(false)} />

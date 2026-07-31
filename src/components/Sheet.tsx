@@ -14,6 +14,7 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { C } from '../theme';
 import { Txt } from './UI';
 import { ToastHost } from './Toast';
+import { useReducedMotion } from '../hooks/useReducedMotion';
 
 /* Bottom sheet matching the PWA: scrim, rounded top, drag-handle bar,
    slide-up animation. */
@@ -35,13 +36,16 @@ export function Sheet({
   const insets = useSafeAreaInsets();
   const y = useRef(new Animated.Value(height)).current;
   const [shown, setShown] = useState(visible);
+  const reduced = useReducedMotion();
 
   useEffect(() => {
     if (visible) {
       setShown(true);
-      Animated.timing(y, { toValue: 0, duration: 220, useNativeDriver: true }).start();
+      Animated.timing(y, { toValue: 0, duration: reduced ? 0 : 220, useNativeDriver: true }).start();
     } else if (shown) {
-      Animated.timing(y, { toValue: height, duration: 200, useNativeDriver: true }).start(() => setShown(false));
+      Animated.timing(y, { toValue: height, duration: reduced ? 0 : 200, useNativeDriver: true }).start(() =>
+        setShown(false)
+      );
     }
   }, [visible]);
 
