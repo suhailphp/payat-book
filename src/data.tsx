@@ -29,8 +29,6 @@ type Data = {
   closeInv: (id: number, status: 'paid' | 'removed', paidTxnId?: number | null) => Promise<void>;
   setMeta: (k: string, v: string) => Promise<void>;
   restoreAll: (people: Person[], events: PayatEvent[], txns: Txn[], invitations: Invitation[]) => Promise<void>;
-  /* re-read everything from SQLite (used by the dev seed tool) */
-  reload: () => Promise<void>;
 };
 
 const Ctx = createContext<Data | null>(null);
@@ -162,9 +160,6 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
             /* reminders off — list still works */
           }
         }
-        await refresh();
-      },
-      reload: async () => {
         await refresh();
       },
     }),

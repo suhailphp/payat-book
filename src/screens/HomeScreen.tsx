@@ -21,6 +21,7 @@ import { C, RADIUS, SHADOW } from '../theme';
 import { KasavuHeader } from '../components/Header';
 import { Avatar, BalChip, Btn, Card, Empty, Row, SecTitle, Txt } from '../components/UI';
 import { InvitationChip } from '../components/InvitationChip';
+import { AddInvitationFlow } from '../components/AddInvitationFlow';
 import { PlusIcon } from '../components/Icons';
 import { MonthChart } from '../components/MonthChart';
 import { BalanceBubbles } from '../components/BalanceBubbles';
@@ -38,6 +39,7 @@ export function HomeScreen() {
   const nav = useNavigation<RootNav>();
   const { t, tp, lang, people, events, txns, invitations, meta, setMeta } = useData();
   const [settingsOpen, setSettingsOpen] = useState(false);
+  const [invFlowOpen, setInvFlowOpen] = useState(false);
   /* ongoing-payat collection chain */
   const [collectFor, setCollectFor] = useState<number | null>(null);
   const [collectNewFor, setCollectNewFor] = useState<number | null>(null);
@@ -143,10 +145,26 @@ export function HomeScreen() {
         ) : null}
         </StaggerIn>
 
-        {/* 3 · pending invitations (top 5, overdue first) — absent when none */}
-        {invTop5.length ? (
-          <StaggerIn index={ai++}>
+        {/* 3 · invitations: header always shows with a compact add button;
+            the list (top 5, overdue first) only when any are pending */}
+        <StaggerIn index={ai++}>
+          <View style={{ flexDirection: 'row', alignItems: 'flex-end', justifyContent: 'space-between' }}>
             <SecTitle>{t('invitations')}</SecTitle>
+            <Pressable
+              onPress={() => setInvFlowOpen(true)}
+              hitSlop={12}
+              accessibilityLabel={t('addInvitation')}
+              style={({ pressed }) => [
+                { paddingVertical: 4, paddingHorizontal: 8, borderRadius: 8, marginBottom: 6 },
+                pressed && { backgroundColor: C.greenTint },
+              ]}
+            >
+              <Txt w={700} size={13.5} color={C.greenDeep}>
+                ＋ {t('addInvitation')}
+              </Txt>
+            </Pressable>
+          </View>
+          {invTop5.length ? (
             <Card>
               {invTop5.map((inv, i) => {
                 const host = people.find((p) => p.id === inv.hostId);
@@ -171,11 +189,11 @@ export function HomeScreen() {
                 );
               })}
             </Card>
-            {pendingInvs.length > 5 ? (
-              <Btn label={t('showMore')} kind="ghost" onPress={() => nav.navigate('Tabs', { screen: 'PaymentsTab' })} />
-            ) : null}
-          </StaggerIn>
-        ) : null}
+          ) : null}
+          {pendingInvs.length > 5 ? (
+            <Btn label={t('showMore')} kind="ghost" onPress={() => nav.navigate('Tabs', { screen: 'PaymentsTab' })} />
+          ) : null}
+        </StaggerIn>
 
         {/* 3b · balance bubbles — the centerpiece */}
         {bubbles.length ? (
@@ -368,6 +386,7 @@ export function HomeScreen() {
         }}
       />
       <EntrySheet ctx={entryCtx} onClose={() => setEntryCtx(null)} />
+      <AddInvitationFlow open={invFlowOpen} onClose={() => setInvFlowOpen(false)} />
     </View>
   );
 }

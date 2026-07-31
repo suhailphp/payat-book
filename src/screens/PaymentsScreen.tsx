@@ -16,6 +16,7 @@ import { C } from '../theme';
 import { KasavuHeader } from '../components/Header';
 import { Avatar, Btn, Card, Empty, listCardWrap, Row, SearchInput, SecTitle, Txt } from '../components/UI';
 import { InvitationChip } from '../components/InvitationChip';
+import { AddInvitationFlow } from '../components/AddInvitationFlow';
 import { SearchableList } from '../components/SearchableList';
 import { PayHandsIcon, PlusIcon, TrashIcon } from '../components/Icons';
 import { Sheet } from '../components/Sheet';
@@ -23,10 +24,9 @@ import { SettingsSheet } from '../sheets/SettingsSheet';
 import { PersonPickerSheet } from '../sheets/PersonPickerSheet';
 import { PersonFormSheet } from '../sheets/PersonFormSheet';
 import { EntrySheet, EntryCtx } from '../sheets/EntrySheet';
-import { InvitationSheet } from '../sheets/InvitationSheet';
 import { confirmSheet } from '../components/ConfirmSheet';
 import { toast } from '../components/Toast';
-import { getPermissionGranted, notificationsSupported, requestPermission } from '../notifications';
+import { getPermissionGranted, notificationsSupported } from '../notifications';
 import type { RootNav } from '../nav';
 
 type PaymentItem = Txn & { name: string };
@@ -37,18 +37,15 @@ const INV_PAGE = 25;
 /* Payments tab: invitations to others' payatts + everything I gave (dir='out'). */
 export function PaymentsScreen() {
   const nav = useNavigation<RootNav>();
-  const { t, tp, lang, people, txns, invitations, meta, removeTxn, addInvitation, closeInv, setMeta } = useData();
+  const { t, tp, lang, people, txns, invitations, removeTxn, closeInv } = useData();
   const [settingsOpen, setSettingsOpen] = useState(false);
   /* "Pay a payat" chain: picker → amount sheet (or new-person → amount sheet) */
   const [pickOpen, setPickOpen] = useState(false);
   const [newPersonOpen, setNewPersonOpen] = useState(false);
   const [entryCtx, setEntryCtx] = useState<EntryCtx | null>(null);
   /* invitation flows */
-  const [invPickOpen, setInvPickOpen] = useState(false);
-  const [invNewPersonOpen, setInvNewPersonOpen] = useState(false);
-  const [invHostId, setInvHostId] = useState<number | null>(null);
+  const [invFlowOpen, setInvFlowOpen] = useState(false);
   const [invActionFor, setInvActionFor] = useState<Invitation | null>(null);
-  const [pendingSave, setPendingSave] = useState<{ hostId: number; date: string; note: string } | null>(null);
   const [payLinkInvId, setPayLinkInvId] = useState<number | null>(null);
   const [invQ, setInvQ] = useState('');
   const [invShown, setInvShown] = useState(INV_LIMIT);
@@ -68,34 +65,6 @@ export function PaymentsScreen() {
 
   const pending = pendingInvitations(invitations).map((i) => ({ ...i, name: nameOf.get(i.hostId) ?? '' }));
   const invPage = pageSlice(searchFilter(pending, invQ, ['name', 'note']), invShown);
-
-  const saveInvitation = async (hostId: number, date: string, note: string) => {
-    await addInvitation(hostId, date, note);
-    toast(t('tSaved'));
-    if (notificationsSupported) getPermissionGranted().then(setPermGranted);
-  };
-
-  /* First save: themed explain sheet → OS permission → save. */
-  const onInvFormSave = async (date: string, note: string) => {
-    const hostId = invHostId!;
-    setInvHostId(null);
-    if (notificationsSupported && !permGranted && meta.notifAsked !== '1') {
-      setPendingSave({ hostId, date, note });
-      return;
-    }
-    await saveInvitation(hostId, date, note);
-  };
-
-  const finishExplain = async (allow: boolean) => {
-    const p = pendingSave;
-    setPendingSave(null);
-    await setMeta('notifAsked', '1');
-    if (allow) {
-      const granted = await requestPermission();
-      setPermGranted(granted);
-    }
-    if (p) await saveInvitation(p.hostId, p.date, p.note);
-  };
 
   const delTxn = async (id: number) => {
     if (!(await confirmSheet({ message: t('qDelEntry'), destructive: true }))) return;
@@ -167,7 +136,7 @@ export function PaymentsScreen() {
               label={t('addInvitation')}
               kind="ghost"
               icon={<PlusIcon color={C.greenDeep} />}
-              onPress={() => setInvPickOpen(true)}
+              onPress={() => setInvFlowOpen(true)}
               style={{ marginTop: 0, marginBottom: pending.length ? 10 : 0 }}
             />
             {pending.length > INV_LIMIT ? (
@@ -264,39 +233,14 @@ export function PaymentsScreen() {
         }}
       />
 
-      {/* invitation chain: host picker → (new person) → date/note sheet */}
-      <PersonPickerSheet
-        visible={invPickOpen}
-        title={t('invHost')}
-        onClose={() => setInvPickOpen(false)}
-        onPick={(id) => {
-          setInvPickOpen(false);
-          setInvHostId(id);
-        }}
-        onNew={() => {
-          setInvPickOpen(false);
-          setInvNewPersonOpen(true);
+      {/* invitation add chain (shared with the dashboard) */}
+      <AddInvitationFlow
+        open={invFlowOpen}
+        onClose={() => setInvFlowOpen(false)}
+        onDone={() => {
+          if (notificationsSupported) getPermissionGranted().then(setPermGranted);
         }}
       />
-      <PersonFormSheet
-        visible={invNewPersonOpen}
-        onClose={() => setInvNewPersonOpen(false)}
-        quiet
-        onSaved={(id) => setInvHostId(id)}
-      />
-      <InvitationSheet
-        host={invHostId != null ? (people.find((p) => p.id === invHostId) ?? null) : null}
-        onClose={() => setInvHostId(null)}
-        onSave={onInvFormSave}
-      />
-
-      {/* first-save notification explainer */}
-      <Sheet visible={!!pendingSave} onClose={() => finishExplain(false)} title={t('invitations')}>
-        <Txt size={15.5} color={C.inkSoft} style={{ marginBottom: 4 }}>
-          {t('notifExplain')}
-        </Txt>
-        <Btn label="OK" onPress={() => finishExplain(true)} />
-      </Sheet>
 
       {/* invitation action sheet */}
       <Sheet
