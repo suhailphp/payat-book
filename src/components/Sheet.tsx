@@ -68,7 +68,7 @@ export function Sheet({
 }
 
 const st = StyleSheet.create({
-  scrim: { ...StyleSheet.absoluteFillObject, backgroundColor: C.scrim },
+  scrim: { position: 'absolute', top: 0, left: 0, right: 0, bottom: 0, backgroundColor: C.scrim },
   sheet: {
     position: 'absolute',
     left: 0,
