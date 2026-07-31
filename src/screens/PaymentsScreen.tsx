@@ -8,15 +8,14 @@ import {
   fmt,
   pageSlice,
   pendingInvitations,
-  relativeInvLabel,
   searchFilter,
-  today,
   Invitation,
   Txn,
 } from '../lib';
 import { C } from '../theme';
 import { KasavuHeader } from '../components/Header';
-import { Avatar, Btn, Card, Empty, listCardWrap, Row, SearchInput, SecTitle, StatusChip, Txt } from '../components/UI';
+import { Avatar, Btn, Card, Empty, listCardWrap, Row, SearchInput, SecTitle, Txt } from '../components/UI';
+import { InvitationChip } from '../components/InvitationChip';
 import { SearchableList } from '../components/SearchableList';
 import { PayHandsIcon, PlusIcon, TrashIcon } from '../components/Icons';
 import { Sheet } from '../components/Sheet';
@@ -96,14 +95,6 @@ export function PaymentsScreen() {
       setPermGranted(granted);
     }
     if (p) await saveInvitation(p.hostId, p.date, p.note);
-  };
-
-  const invChip = (inv: Invitation) => {
-    const rel = relativeInvLabel(inv.date, today());
-    if (rel.kind === 'overdue') return <StatusChip kind="neg" label={tp('daysAgo', { d: rel.d })} />;
-    if (rel.kind === 'today') return <StatusChip kind="gold" label={t('today')} />;
-    if (rel.kind === 'tomorrow') return <StatusChip kind="gold" label={t('tomorrow')} />;
-    return <StatusChip kind="gold" label={tp('daysLeft', { d: rel.d })} />;
   };
 
   const delTxn = async (id: number) => {
@@ -198,7 +189,7 @@ export function PaymentsScreen() {
                         {inv.note ? ` · ${inv.note}` : ''}
                       </Txt>
                     </View>
-                    {invChip(inv)}
+                    <InvitationChip date={inv.date} />
                   </Row>
                 ))}
               </Card>

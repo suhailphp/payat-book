@@ -11,16 +11,16 @@ import {
   monthBuckets,
   monthKey,
   monthTotals,
-  relativeInvLabel,
+  pendingInvitations,
   today,
   topBalances,
   totals,
-  urgentInvitation,
   waitingLongest,
 } from '../lib';
 import { C, RADIUS, SHADOW } from '../theme';
 import { KasavuHeader } from '../components/Header';
-import { Avatar, BalChip, Btn, Card, Empty, Row, SecTitle, StatusChip, Txt } from '../components/UI';
+import { Avatar, BalChip, Btn, Card, Empty, Row, SecTitle, Txt } from '../components/UI';
+import { InvitationChip } from '../components/InvitationChip';
 import { PlusIcon } from '../components/Icons';
 import { MonthChart } from '../components/MonthChart';
 import { BalanceBubbles } from '../components/BalanceBubbles';
@@ -50,8 +50,8 @@ export function HomeScreen() {
   const top = topBalances(people, txns, 5);
   const bubbles = bubbleItems(people, txns, 8);
   const waiting = waitingLongest(people, txns, 3);
-  const urgentInv = urgentInvitation(invitations, today());
-  const urgentHost = urgentInv ? people.find((p) => p.id === urgentInv.hostId) : null;
+  const pendingInvs = pendingInvitations(invitations);
+  const invTop5 = pendingInvs.slice(0, 5);
   const ongoing = events
     .filter((e) => e.type === 'hosted' && e.status !== 'closed')
     .sort((a, b) => (b.date || '').localeCompare(a.date || '') || b.id - a.id)[0];
@@ -143,7 +143,41 @@ export function HomeScreen() {
         ) : null}
         </StaggerIn>
 
-        {/* 3 · balance bubbles — the centerpiece */}
+        {/* 3 · pending invitations (top 5, overdue first) — absent when none */}
+        {invTop5.length ? (
+          <StaggerIn index={ai++}>
+            <SecTitle>{t('invitations')}</SecTitle>
+            <Card>
+              {invTop5.map((inv, i) => {
+                const host = people.find((p) => p.id === inv.hostId);
+                return (
+                  <Row
+                    key={inv.id}
+                    last={i === invTop5.length - 1}
+                    onPress={() => nav.navigate('Tabs', { screen: 'PaymentsTab' })}
+                  >
+                    <Avatar name={host?.name || '?'} />
+                    <View style={{ flex: 1, minWidth: 0 }}>
+                      <Txt w={600} size={16.5} numberOfLines={1}>
+                        {host?.name ?? ''}
+                      </Txt>
+                      <Txt size={13.5} color={C.inkSoft} numberOfLines={1}>
+                        {dstr(inv.date, lang)}
+                        {inv.note ? ` · ${inv.note}` : ''}
+                      </Txt>
+                    </View>
+                    <InvitationChip date={inv.date} />
+                  </Row>
+                );
+              })}
+            </Card>
+            {pendingInvs.length > 5 ? (
+              <Btn label={t('showMore')} kind="ghost" onPress={() => nav.navigate('Tabs', { screen: 'PaymentsTab' })} />
+            ) : null}
+          </StaggerIn>
+        ) : null}
+
+        {/* 3b · balance bubbles — the centerpiece */}
         {bubbles.length ? (
           <StaggerIn index={ai++}>
             <SecTitle>{t('bubblesTitle')}</SecTitle>
@@ -175,34 +209,6 @@ export function HomeScreen() {
                 </Row>
               ))}
             </Card>
-          </StaggerIn>
-        ) : null}
-
-        {/* 3c · upcoming payat I was invited to (most urgent, ≤7 days or overdue) */}
-        {urgentInv && urgentHost ? (
-          <StaggerIn index={ai++}>
-            <SecTitle>{t('upcomingPayat')}</SecTitle>
-            <Pressable onPress={() => nav.navigate('Tabs', { screen: 'PaymentsTab' })}>
-              <View style={[st.ongoing, { flexDirection: 'row', alignItems: 'center', gap: 10 }]}>
-                <Avatar name={urgentHost.name} />
-                <View style={{ flex: 1, minWidth: 0 }}>
-                  <Txt w={700} size={17} numberOfLines={1}>
-                    {urgentHost.name}
-                  </Txt>
-                  <Txt size={13.5} color={C.inkSoft} numberOfLines={1}>
-                    {dstr(urgentInv.date, lang)}
-                    {urgentInv.note ? ` · ${urgentInv.note}` : ''}
-                  </Txt>
-                </View>
-                {(() => {
-                  const rel = relativeInvLabel(urgentInv.date, today());
-                  if (rel.kind === 'overdue') return <StatusChip kind="neg" label={tp('daysAgo', { d: rel.d })} />;
-                  if (rel.kind === 'today') return <StatusChip kind="gold" label={t('today')} />;
-                  if (rel.kind === 'tomorrow') return <StatusChip kind="gold" label={t('tomorrow')} />;
-                  return <StatusChip kind="gold" label={tp('daysLeft', { d: rel.d })} />;
-                })()}
-              </View>
-            </Pressable>
           </StaggerIn>
         ) : null}
 
