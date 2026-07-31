@@ -27,17 +27,9 @@ export const FONT = {
 } as const;
 
 export const SHADOW = {
-  shadowColor: '#20291F',
-  shadowOpacity: 0.08,
-  shadowRadius: 3,
-  shadowOffset: { width: 0, height: 1 },
-  elevation: 2,
+  boxShadow: '0 1px 3px rgba(32, 41, 31, 0.08)',
 } as const;
 
 export const FAB_SHADOW = {
-  shadowColor: '#0A3F2A',
-  shadowOpacity: 0.35,
-  shadowRadius: 14,
-  shadowOffset: { width: 0, height: 4 },
-  elevation: 8,
+  boxShadow: '0 4px 14px rgba(10, 63, 42, 0.35)',
 } as const;

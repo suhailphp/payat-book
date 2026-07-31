@@ -35,7 +35,7 @@ export function ToastHost() {
   }, [opacity]);
 
   return (
-    <Animated.View pointerEvents="none" style={[st.toast, { opacity, bottom: 84 + insets.bottom }]}>
+    <Animated.View style={[st.toast, { opacity, bottom: 84 + insets.bottom, pointerEvents: 'none' }]}>
       <Animated.Text numberOfLines={1} style={st.text}>
         {msg}
       </Animated.Text>
