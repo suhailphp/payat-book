@@ -2,7 +2,7 @@ import React, { useEffect, useState } from 'react';
 import { Pressable, SectionList, StyleSheet, View } from 'react-native';
 import { useNavigation, useRoute, RouteProp } from '@react-navigation/native';
 import { useData } from '../data';
-import { bal, dstr, eventTotal, fmt, Person, Txn } from '../lib';
+import { bal, dstr, eventTotal, fmt, pageSlice, Person, searchFilter, Txn } from '../lib';
 import { C, RADIUS, SHADOW } from '../theme';
 import { KasavuHeader } from '../components/Header';
 import { Avatar, BalChip, Btn, Card, Empty, listCardWrap, MiniAddBtn, Row, SearchInput, SecTitle, StatusChip, Txt } from '../components/UI';
@@ -10,15 +10,19 @@ import { PlusIcon, TrashIcon } from '../components/Icons';
 import { PersonPickerSheet } from '../sheets/PersonPickerSheet';
 import { PersonFormSheet } from '../sheets/PersonFormSheet';
 import { EntrySheet, EntryCtx } from '../sheets/EntrySheet';
+import { SettingsSheet } from '../sheets/SettingsSheet';
 import { confirmSheet } from '../components/ConfirmSheet';
 import { toast } from '../components/Toast';
 import type { RootNav, RootParams } from '../nav';
 
-type SectionItem = Person | Txn;
-const SEARCH_THRESHOLD = 10;
+type PaidItem = Txn & { name: string };
+type SectionItem = Person | PaidItem;
+const INITIAL_LIMIT = 10;
+const PAGE_SIZE = 25;
 
 /* Hosting screen: collections for one payat, pending-balance list,
-   finish/reopen, late payments after finishing. */
+   finish/reopen, late payments after finishing. Both sections use the
+   shared search + pagination helpers (search appears past 10 rows). */
 export function EventScreen() {
   const nav = useNavigation<RootNav>();
   const route = useRoute<RouteProp<RootParams, 'Event'>>();
@@ -26,9 +30,15 @@ export function EventScreen() {
   const { t, tp, lang, people, events, txns, setEventStatus, removeEvent, removeTxn } = useData();
   const [pickOpen, setPickOpen] = useState(false);
   const [newPersonOpen, setNewPersonOpen] = useState(false);
+  const [settingsOpen, setSettingsOpen] = useState(false);
   const [entryCtx, setEntryCtx] = useState<EntryCtx | null>(null);
   const [pendingQ, setPendingQ] = useState('');
   const [paidQ, setPaidQ] = useState('');
+  const [shownPending, setShownPending] = useState(INITIAL_LIMIT);
+  const [shownPaid, setShownPaid] = useState(INITIAL_LIMIT);
+
+  useEffect(() => setShownPending(INITIAL_LIMIT), [pendingQ]);
+  useEffect(() => setShownPaid(INITIAL_LIMIT), [paidQ]);
 
   const e = events.find((x) => x.id === eid);
   useEffect(() => {
@@ -36,7 +46,11 @@ export function EventScreen() {
   }, [e, nav]);
   if (!e) return null;
 
-  const allPaid = txns.filter((x) => x.eventId === eid).sort((a, b) => b.id - a.id);
+  const nameOf = new Map(people.map((p) => [p.id, p.name]));
+  const allPaid: PaidItem[] = txns
+    .filter((x) => x.eventId === eid)
+    .sort((a, b) => b.id - a.id)
+    .map((x) => ({ ...x, name: nameOf.get(x.personId) ?? '' }));
   const total = eventTotal(txns, eid);
   const open = e.status !== 'closed';
   const addLabel = open ? t('addCollection') : t('addLate');
@@ -45,16 +59,8 @@ export function EventScreen() {
     .filter((p) => bal(txns, p.id) > 0 && !paidIds.has(p.id))
     .sort((a, b) => bal(txns, b.id) - bal(txns, a.id));
 
-  const pending = pendingQ.trim()
-    ? allPending.filter((p) => p.name.toLowerCase().includes(pendingQ.trim().toLowerCase()))
-    : allPending;
-  const paid = paidQ.trim()
-    ? allPaid.filter((x) => {
-        const needle = paidQ.trim().toLowerCase();
-        const p = people.find((pp) => pp.id === x.personId);
-        return (p?.name.toLowerCase() || '').includes(needle) || (x.note || '').toLowerCase().includes(needle);
-      })
-    : allPaid;
+  const pendingPage = pageSlice(searchFilter(allPending, pendingQ, ['name']), shownPending);
+  const paidPage = pageSlice(searchFilter(allPaid, paidQ, ['name', 'note']), shownPaid);
 
   const toggleStatus = async () => {
     await setEventStatus(eid, open ? 'closed' : 'open');
@@ -74,14 +80,15 @@ export function EventScreen() {
   };
 
   const sections = [
-    { key: 'pending' as const, title: t('pendingSec'), data: pending as SectionItem[] },
-    { key: 'paid' as const, title: t('paidSec'), data: paid as SectionItem[] },
+    { key: 'pending' as const, title: t('pendingSec'), data: pendingPage.rows as SectionItem[], hasMore: pendingPage.hasMore },
+    { key: 'paid' as const, title: t('paidSec'), data: paidPage.rows as SectionItem[], hasMore: paidPage.hasMore },
   ];
 
   return (
     <View style={{ flex: 1, backgroundColor: C.cotton }}>
       <KasavuHeader
         onBack={() => nav.goBack()}
+        onGear={() => setSettingsOpen(true)}
         actions={
           <Pressable
             onPress={delEvent}
@@ -122,7 +129,7 @@ export function EventScreen() {
         renderSectionHeader={({ section }) => (
           <View>
             <SecTitle>{section.title}</SecTitle>
-            {(section.key === 'pending' ? allPending : allPaid).length > SEARCH_THRESHOLD ? (
+            {(section.key === 'pending' ? allPending : allPaid).length > INITIAL_LIMIT ? (
               <View style={{ marginBottom: 10 }}>
                 <SearchInput
                   value={section.key === 'pending' ? pendingQ : paidQ}
@@ -134,19 +141,32 @@ export function EventScreen() {
             ) : null}
           </View>
         )}
-        renderSectionFooter={({ section }) =>
-          section.data.length === 0 ? (
-            <Card>
-              {section.key === 'pending' ? (
-                <Empty desc={allPending.length ? t('noMatch') : t('emptyPendD')} />
-              ) : allPaid.length ? (
-                <Empty desc={t('noMatch')} />
-              ) : (
-                <Empty title={t('emptyEvT')} desc={tp('emptyEvD', { b: addLabel })} />
-              )}
-            </Card>
-          ) : null
-        }
+        renderSectionFooter={({ section }) => (
+          <View>
+            {section.data.length === 0 ? (
+              <Card>
+                {section.key === 'pending' ? (
+                  <Empty desc={allPending.length ? t('noMatch') : t('emptyPendD')} />
+                ) : allPaid.length ? (
+                  <Empty desc={t('noMatch')} />
+                ) : (
+                  <Empty title={t('emptyEvT')} desc={tp('emptyEvD', { b: addLabel })} />
+                )}
+              </Card>
+            ) : null}
+            {section.hasMore ? (
+              <Btn
+                label={t('showMore')}
+                kind="ghost"
+                onPress={() =>
+                  section.key === 'pending'
+                    ? setShownPending((s) => s + PAGE_SIZE)
+                    : setShownPaid((s) => s + PAGE_SIZE)
+                }
+              />
+            ) : null}
+          </View>
+        )}
         renderItem={({ item, index, section }) => {
           if (section.key === 'pending') {
             const p = item as Person;
@@ -170,16 +190,14 @@ export function EventScreen() {
               </View>
             );
           }
-          const x = item as Txn;
-          const p = people.find((pp) => pp.id === x.personId);
-          if (!p) return null;
+          const x = item as PaidItem;
           return (
             <View style={listCardWrap(index, section.data.length)}>
               <Row last={index === section.data.length - 1}>
-                <Avatar name={p.name} />
+                <Avatar name={x.name || '?'} />
                 <View style={{ flex: 1, minWidth: 0 }}>
                   <Txt w={600} size={16.5} numberOfLines={1}>
-                    {p.name}
+                    {x.name}
                   </Txt>
                   <Txt size={13.5} color={C.inkSoft} numberOfLines={1}>
                     {dstr(x.date, lang)}
@@ -221,6 +239,7 @@ export function EventScreen() {
         quiet
         onSaved={(id) => setEntryCtx({ personId: id, dir: 'in', eventId: eid })}
       />
+      <SettingsSheet visible={settingsOpen} onClose={() => setSettingsOpen(false)} />
       <EntrySheet ctx={entryCtx} onClose={() => setEntryCtx(null)} />
     </View>
   );

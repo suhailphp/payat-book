@@ -1,11 +1,12 @@
 import React, { useState } from 'react';
-import { FlatList, Pressable, StyleSheet, View } from 'react-native';
+import { Pressable, StyleSheet, View } from 'react-native';
 import { useNavigation } from '@react-navigation/native';
 import { useData } from '../data';
-import { dstr, filterPayments, fmt } from '../lib';
+import { dstr, filterPayments, fmt, Txn } from '../lib';
 import { C } from '../theme';
 import { KasavuHeader } from '../components/Header';
-import { Avatar, Btn, Card, Empty, listCardWrap, Row, SearchInput, SecTitle, Txt } from '../components/UI';
+import { Avatar, Btn, Card, Empty, Row, SecTitle, Txt } from '../components/UI';
+import { SearchableList } from '../components/SearchableList';
 import { PayHandsIcon, TrashIcon } from '../components/Icons';
 import { SettingsSheet } from '../sheets/SettingsSheet';
 import { PersonPickerSheet } from '../sheets/PersonPickerSheet';
@@ -15,20 +16,24 @@ import { confirmSheet } from '../components/ConfirmSheet';
 import { toast } from '../components/Toast';
 import type { RootNav } from '../nav';
 
+type PaymentItem = Txn & { name: string };
+
 /* Payments tab: everything I gave at others' payatts (dir='out'). */
 export function PaymentsScreen() {
   const nav = useNavigation<RootNav>();
   const { t, tp, lang, people, txns, removeTxn } = useData();
   const [settingsOpen, setSettingsOpen] = useState(false);
-  const [q, setQ] = useState('');
   /* "Pay a payat" chain: picker → amount sheet (or new-person → amount sheet) */
   const [pickOpen, setPickOpen] = useState(false);
   const [newPersonOpen, setNewPersonOpen] = useState(false);
   const [entryCtx, setEntryCtx] = useState<EntryCtx | null>(null);
 
-  const allPayments = filterPayments(txns, people, '');
+  const nameOf = new Map(people.map((p) => [p.id, p.name]));
+  const allPayments: PaymentItem[] = filterPayments(txns, people, '').map((x) => ({
+    ...x,
+    name: nameOf.get(x.personId) ?? '',
+  }));
   const recent = allPayments.slice(0, 5);
-  const filtered = filterPayments(txns, people, q);
 
   const delTxn = async (id: number) => {
     if (!(await confirmSheet({ message: t('qDelEntry'), destructive: true }))) return;
@@ -36,43 +41,41 @@ export function PaymentsScreen() {
     toast(t('tDeleted'));
   };
 
-  const paymentRow = (x: (typeof txns)[number], index: number, count: number, deletable: boolean) => {
-    const p = people.find((pp) => pp.id === x.personId);
-    if (!p) return null;
-    return (
-      <Row last={index === count - 1} onPress={() => nav.navigate('Person', { id: p.id })}>
-        <Avatar name={p.name} />
-        <View style={{ flex: 1, minWidth: 0 }}>
-          <Txt w={700} size={16.5} color={C.green} num numberOfLines={1}>
-            {tp('recentOut', { n: p.name, a: fmt(x.amount) })}
-          </Txt>
-          <Txt size={13.5} color={C.inkSoft} numberOfLines={1}>
-            {dstr(x.date, lang)}
-            {x.note ? ` · ${x.note}` : ''}
-          </Txt>
-        </View>
-        {deletable ? (
-          <Pressable
-            onPress={() => delTxn(x.id)}
-            accessibilityLabel="Delete"
-            style={({ pressed }) => [st.mini, pressed && { backgroundColor: C.cotton }]}
-          >
-            <TrashIcon />
-          </Pressable>
-        ) : null}
-      </Row>
-    );
-  };
+  const paymentRow = (x: PaymentItem, index: number, count: number, deletable: boolean) => (
+    <Row last={index === count - 1} onPress={() => nav.navigate('Person', { id: x.personId })}>
+      <Avatar name={x.name || '?'} />
+      <View style={{ flex: 1, minWidth: 0 }}>
+        <Txt w={700} size={16.5} color={C.green} num numberOfLines={1}>
+          {tp('recentOut', { n: x.name, a: fmt(x.amount) })}
+        </Txt>
+        <Txt size={13.5} color={C.inkSoft} numberOfLines={1}>
+          {dstr(x.date, lang)}
+          {x.note ? ` · ${x.note}` : ''}
+        </Txt>
+      </View>
+      {deletable ? (
+        <Pressable
+          onPress={() => delTxn(x.id)}
+          accessibilityLabel="Delete"
+          style={({ pressed }) => [st.mini, pressed && { backgroundColor: C.cotton }]}
+        >
+          <TrashIcon />
+        </Pressable>
+      ) : null}
+    </Row>
+  );
 
   return (
     <View style={{ flex: 1, backgroundColor: C.cotton }}>
       <KasavuHeader onGear={() => setSettingsOpen(true)} />
-      <FlatList
-        data={filtered}
-        keyExtractor={(x) => String(x.id)}
-        keyboardShouldPersistTaps="handled"
+      <SearchableList
+        data={allPayments}
+        keyOf={(x) => String(x.id)}
+        searchKeys={['name', 'note']}
+        placeholder={t('searchPayments')}
         contentContainerStyle={{ padding: 16, paddingTop: 16, paddingBottom: 96 }}
-        ListHeaderComponent={
+        empty={<Empty title={t('emptyPayT')} desc={t('emptyPayD')} />}
+        header={
           <View>
             <Btn
               label={t('payBtn')}
@@ -84,29 +87,17 @@ export function PaymentsScreen() {
             <SecTitle>{t('recentPayments')}</SecTitle>
             <Card>
               {recent.length ? (
-                recent.map((x, i) => <React.Fragment key={x.id}>{paymentRow(x, i, recent.length, false)}</React.Fragment>)
+                recent.map((x, i) => (
+                  <React.Fragment key={x.id}>{paymentRow(x, i, recent.length, false)}</React.Fragment>
+                ))
               ) : (
                 <Empty title={t('emptyPayT')} desc={t('emptyPayD')} />
               )}
             </Card>
             <SecTitle>{t('allPayments')}</SecTitle>
-            <View style={{ marginBottom: 10 }}>
-              <SearchInput value={q} onChangeText={setQ} placeholder={t('searchPayments')} autoCorrect={false} />
-            </View>
           </View>
         }
-        renderItem={({ item, index }) => (
-          <View style={listCardWrap(index, filtered.length)}>{paymentRow(item, index, filtered.length, true)}</View>
-        )}
-        ListEmptyComponent={
-          <Card>
-            {allPayments.length ? (
-              <Empty desc={t('noMatch')} />
-            ) : (
-              <Empty title={t('emptyPayT')} desc={t('emptyPayD')} />
-            )}
-          </Card>
-        }
+        renderRow={(item, index, count) => paymentRow(item, index, count, true)}
       />
       <SettingsSheet visible={settingsOpen} onClose={() => setSettingsOpen(false)} />
       <PersonPickerSheet

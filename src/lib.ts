@@ -123,6 +123,26 @@ export const filterPayments = (txns: Txn[], people: Person[], q: string): Txn[] 
     .sort((a, b) => (b.date || '').localeCompare(a.date || '') || b.id - a.id);
 };
 
+/* ---- v4: search + pagination (pure, shared by SearchableList and the
+   hosting screen's sections) ---- */
+
+export const searchFilter = <T,>(data: T[], q: string, keys: string[]): T[] => {
+  const needle = q.trim().toLowerCase();
+  if (!needle) return data;
+  return data.filter((item) =>
+    keys.some((k) =>
+      String((item as Record<string, unknown>)[k] ?? '')
+        .toLowerCase()
+        .includes(needle)
+    )
+  );
+};
+
+export const pageSlice = <T,>(data: T[], shown: number): { rows: T[]; hasMore: boolean } => ({
+  rows: data.slice(0, Math.max(0, shown)),
+  hasMore: data.length > shown,
+});
+
 export type Backup = {
   app: string;
   version: number;
