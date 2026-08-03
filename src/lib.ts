@@ -41,6 +41,14 @@ export const bal = (txns: Txn[], pid: number): number =>
 export const eventTotal = (txns: Txn[], eid: number): number =>
   txns.filter((x) => x.eventId === eid).reduce((s, x) => s + x.amount, 0);
 
+/* A person's opening-balance entry — the txn whose note matches obNote (passed
+   in both languages so a language switch doesn't hide it); earliest first when
+   there are several. Used to prefill and update it in the edit-person sheet. */
+export const findOpeningTxn = (txns: Txn[], personId: number, openingNotes: string[]): Txn | undefined =>
+  txns
+    .filter((x) => x.personId === personId && openingNotes.includes(x.note))
+    .sort((a, b) => (a.date || '').localeCompare(b.date || '') || a.id - b.id)[0];
+
 /* Display format is DD/MM/YYYY in both languages. Storage stays the
    normalized YYYY-MM-DD ISO string; lang is accepted for call-site
    compatibility but no longer affects the output. */

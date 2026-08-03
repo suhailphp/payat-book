@@ -1,16 +1,19 @@
 import React, { useEffect, useState } from 'react';
 import { View } from 'react-native';
 import { useData } from '../data';
-import { bal, fmt, owedFor, today } from '../lib';
+import { bal, fmt, owedFor, today, Txn } from '../lib';
 import { C } from '../theme';
 import { Sheet } from '../components/Sheet';
 import { DateField } from '../components/DateField';
-import { Btn, ChipBtn, Field, Txt } from '../components/UI';
+import { Btn, ChipBtn, Field, Seg, Txt } from '../components/UI';
+import { confirmSheet } from '../components/ConfirmSheet';
 import { toast } from '../components/Toast';
 
-export type EntryCtx = { personId: number; dir: 'in' | 'out'; eventId?: number };
+/* `txn` present → edit an existing entry; otherwise add a new one in `dir`. */
+export type EntryCtx = { personId: number; dir: 'in' | 'out'; eventId?: number; txn?: Txn };
 
-/* Amount sheet: amount + close-balance/double suggestion chips, date, note. */
+/* Amount sheet: amount + close-balance/double suggestion chips, date, note.
+   In edit mode it prefills the entry and adds a direction toggle + delete. */
 export function EntrySheet({
   ctx,
   onClose,
@@ -20,24 +23,37 @@ export function EntrySheet({
   onClose: () => void;
   onSaved?: (txnId: number) => void;
 }) {
-  const { t, tp, lang, people, txns, addTxn } = useData();
+  const { t, tp, lang, people, txns, addTxn, editTxn, removeTxn } = useData();
+  const editing = !!ctx?.txn;
   const [amount, setAmount] = useState('');
   const [date, setDate] = useState(today());
   const [note, setNote] = useState('');
+  /* editable direction (in = they gave me, out = I gave them); for a new entry
+     it's fixed by which button opened the sheet, so the toggle only shows here. */
+  const [dir, setDir] = useState<'in' | 'out'>('in');
 
   useEffect(() => {
     if (ctx) {
-      setAmount('');
-      setDate(today());
-      setNote('');
+      if (ctx.txn) {
+        setAmount(String(ctx.txn.amount));
+        setDate(ctx.txn.date || today());
+        setNote(ctx.txn.note);
+        setDir(ctx.txn.dir);
+      } else {
+        setAmount('');
+        setDate(today());
+        setNote('');
+        setDir(ctx.dir);
+      }
     }
   }, [ctx]);
 
   const p = ctx ? people.find((x) => x.id === ctx.personId) : null;
   if (!ctx || !p) return <Sheet visible={false} onClose={onClose}>{null}</Sheet>;
 
-  const b = bal(txns, p.id);
-  const owed = owedFor(b, ctx.dir);
+  /* suggestion chips only help when adding: the balance already includes the
+     entry being edited, so they'd be misleading in edit mode. */
+  const owed = editing ? 0 : owedFor(bal(txns, p.id), ctx.dir);
 
   const save = async () => {
     const amt = parseInt((amount || '').replace(/[^\d]/g, ''), 10);
@@ -45,25 +61,51 @@ export function EntrySheet({
       toast(t('tEnterAmount'));
       return;
     }
-    const txnId = await addTxn({
-      personId: ctx.personId,
-      eventId: ctx.eventId ?? null,
-      dir: ctx.dir,
-      amount: amt,
-      date: date || today(),
-      note: note.trim(),
-    });
-    onClose();
-    toast(t('tEntry'));
-    onSaved?.(txnId);
+    if (ctx.txn) {
+      await editTxn(ctx.txn.id, { dir, amount: amt, date: date || today(), note: note.trim() });
+      onClose();
+      toast(t('tEdited'));
+      onSaved?.(ctx.txn.id);
+    } else {
+      const txnId = await addTxn({
+        personId: ctx.personId,
+        eventId: ctx.eventId ?? null,
+        dir: ctx.dir,
+        amount: amt,
+        date: date || today(),
+        note: note.trim(),
+      });
+      onClose();
+      toast(t('tEntry'));
+      onSaved?.(txnId);
+    }
   };
+
+  const del = async () => {
+    if (!ctx.txn) return;
+    if (!(await confirmSheet({ message: t('qDelEntry'), destructive: true }))) return;
+    await removeTxn(ctx.txn.id);
+    onClose();
+    toast(t('tDeleted'));
+  };
+
+  const title = editing
+    ? t('editEntry')
+    : ctx.dir === 'in'
+      ? `${p.name} — ${t('theyGave')}`
+      : `${t('iGave')} — ${p.name}`;
 
   return (
     <Sheet
       visible={!!ctx}
       onClose={onClose}
-      title={ctx.dir === 'in' ? `${p.name} — ${t('theyGave')}` : `${t('iGave')} — ${p.name}`}
-      footer={<Btn label={t('saveEntry')} onPress={save} />}
+      title={title}
+      footer={
+        <>
+          <Btn label={editing ? t('saveEdit') : t('saveEntry')} onPress={save} />
+          {editing ? <Btn label={t('qDelete')} kind="danger" onPress={del} /> : null}
+        </>
+      }
     >
       <Field
         label={t('fAmount')}
@@ -71,8 +113,20 @@ export function EntrySheet({
         onChangeText={setAmount}
         keyboardType="number-pad"
         placeholder="0"
-        autoFocus
+        autoFocus={!editing}
       />
+      {editing ? (
+        <View style={{ marginTop: -4, marginBottom: 14 }}>
+          <Seg
+            options={[
+              { value: 'in', label: t('theyGave') },
+              { value: 'out', label: t('iGave') },
+            ]}
+            value={dir}
+            onChange={(v) => setDir(v as 'in' | 'out')}
+          />
+        </View>
+      ) : null}
       {owed > 0 ? (
         <View style={{ marginTop: -6, marginBottom: 14 }}>
           <View style={{ flexDirection: 'row', gap: 8, flexWrap: 'wrap' }}>

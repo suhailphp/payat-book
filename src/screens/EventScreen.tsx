@@ -27,7 +27,7 @@ export function EventScreen() {
   const nav = useNavigation<RootNav>();
   const route = useRoute<RouteProp<RootParams, 'Event'>>();
   const eid = route.params.id;
-  const { t, tp, lang, people, events, txns, setEventStatus, removeEvent, removeTxn } = useData();
+  const { t, tp, lang, people, events, txns, setEventStatus, removeEvent } = useData();
   const [pickOpen, setPickOpen] = useState(false);
   const [newPersonOpen, setNewPersonOpen] = useState(false);
   const [settingsOpen, setSettingsOpen] = useState(false);
@@ -70,12 +70,6 @@ export function EventScreen() {
   const delEvent = async () => {
     if (!(await confirmSheet({ message: t('qDelPayat'), destructive: true }))) return;
     await removeEvent(eid);
-    toast(t('tDeleted'));
-  };
-
-  const delTxn = async (id: number) => {
-    if (!(await confirmSheet({ message: t('qDelEntry'), destructive: true }))) return;
-    await removeTxn(id);
     toast(t('tDeleted'));
   };
 
@@ -193,7 +187,10 @@ export function EventScreen() {
           const x = item as PaidItem;
           return (
             <View style={listCardWrap(index, section.data.length)}>
-              <Row last={index === section.data.length - 1}>
+              <Row
+                last={index === section.data.length - 1}
+                onPress={() => setEntryCtx({ personId: x.personId, dir: x.dir, eventId: x.eventId ?? undefined, txn: x })}
+              >
                 <Avatar name={x.name || '?'} />
                 <View style={{ flex: 1, minWidth: 0 }}>
                   <Txt w={600} size={16.5} numberOfLines={1}>
@@ -207,13 +204,6 @@ export function EventScreen() {
                 <Txt w={700} size={16} num>
                   {fmt(x.amount)}
                 </Txt>
-                <Pressable
-                  onPress={() => delTxn(x.id)}
-                  accessibilityLabel="Delete"
-                  style={({ pressed }) => [st.mini, pressed && { backgroundColor: C.cotton }]}
-                >
-                  <TrashIcon />
-                </Pressable>
               </Row>
             </View>
           );
@@ -255,5 +245,4 @@ const st = StyleSheet.create({
     padding: 20,
     ...SHADOW,
   },
-  mini: { width: 38, height: 38, borderRadius: 10, alignItems: 'center', justifyContent: 'center' },
 });

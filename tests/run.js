@@ -29,9 +29,10 @@ const {
   pendingInvitations,
   urgentInvitation,
   dayCountLabel,
+  findOpeningTxn,
 } = require('../.testbuild/lib');
 const { buildShareText } = require('../.testbuild/share');
-const { tFor, tpFor } = require('../.testbuild/i18n');
+const { tFor, tpFor, STR } = require('../.testbuild/i18n');
 
 let n = 0;
 const ok = (name, fn) => {
@@ -62,6 +63,76 @@ ok('opening balance: I should receive → out → +, I should give → in → �
   // opening entry + a later real entry compose normally
   const both = [...recv, { id: 2, personId: 7, eventId: null, dir: 'in', amount: 2000, date: '2026-08-04', note: '' }];
   assert.strictEqual(bal(both, 7), 3000);
+});
+
+/* ---- editing entries ---- */
+
+// mimics db.updateTxn: dir/amount/date/note change in place; id/personId/eventId kept
+const editTxnLocal = (txns, id, fields) => txns.map((x) => (x.id === id ? { ...x, ...fields } : x));
+const OB = STR.en.obNote; // "Opening balance"
+const OB_ML = STR.ml.obNote; // "തുടക്ക ബാലൻസ്"
+
+ok('edit amount → new balance', () => {
+  const t0 = [
+    { id: 1, personId: 1, eventId: null, dir: 'out', amount: 1000, date: '2026-07-10', note: '' },
+    { id: 2, personId: 1, eventId: null, dir: 'in', amount: 400, date: '2026-07-12', note: '' },
+  ];
+  assert.strictEqual(bal(t0, 1), 600);
+  const t1 = editTxnLocal(t0, 1, { dir: 'out', amount: 2500, date: '2026-07-10', note: '' });
+  assert.strictEqual(bal(t1, 1), 2100); // 2500 − 400
+});
+
+ok('edit direction → new balance (flip out→in)', () => {
+  const t0 = [{ id: 1, personId: 1, eventId: null, dir: 'out', amount: 1000, date: '2026-07-10', note: '' }];
+  assert.strictEqual(bal(t0, 1), 1000);
+  const t1 = editTxnLocal(t0, 1, { dir: 'in', amount: 1000, date: '2026-07-10', note: '' });
+  assert.strictEqual(bal(t1, 1), -1000);
+});
+
+ok('edit event-linked collection keeps eventId and updates payat total', () => {
+  const t0 = [
+    { id: 1, personId: 1, eventId: 5, dir: 'in', amount: 700, date: '2026-07-20', note: '' },
+    { id: 2, personId: 2, eventId: 5, dir: 'in', amount: 300, date: '2026-07-20', note: '' },
+  ];
+  assert.strictEqual(eventTotal(t0, 5), 1000);
+  const t1 = editTxnLocal(t0, 1, { dir: 'in', amount: 1200, date: '2026-07-20', note: 'fixed' });
+  assert.strictEqual(t1.find((x) => x.id === 1).eventId, 5); // link preserved
+  assert.strictEqual(eventTotal(t1, 5), 1500); // 1200 + 300
+});
+
+ok('editing opening balance updates (not duplicates) the opening txn', () => {
+  const t0 = [
+    { id: 1, personId: 1, eventId: null, dir: 'out', amount: 5000, date: '2026-08-01', note: OB },
+    { id: 2, personId: 1, eventId: null, dir: 'in', amount: 2000, date: '2026-08-04', note: '' },
+  ];
+  const ot = findOpeningTxn(t0, 1, [OB, OB_ML]);
+  assert.strictEqual(ot.id, 1);
+  // raise amount + flip to "give" (in)
+  const t1 = editTxnLocal(t0, ot.id, { dir: 'in', amount: 8000, date: ot.date, note: ot.note });
+  const openings = t1.filter((x) => x.personId === 1 && [OB, OB_ML].includes(x.note));
+  assert.strictEqual(openings.length, 1); // not duplicated
+  assert.strictEqual(openings[0].amount, 8000);
+  assert.strictEqual(bal(t1, 1), -10000); // −8000 (in) − 2000 (in)
+});
+
+ok('findOpeningTxn: earliest when several, matches either language', () => {
+  const t0 = [
+    { id: 3, personId: 1, eventId: null, dir: 'out', amount: 100, date: '2026-08-05', note: OB },
+    { id: 2, personId: 1, eventId: null, dir: 'out', amount: 200, date: '2026-08-01', note: OB_ML },
+  ];
+  assert.strictEqual(findOpeningTxn(t0, 1, [OB, OB_ML]).id, 2); // earliest date wins
+  assert.strictEqual(findOpeningTxn(t0, 9, [OB, OB_ML]), undefined); // none for other person
+});
+
+ok('clearing opening balance removes only that txn', () => {
+  const t0 = [
+    { id: 1, personId: 1, eventId: null, dir: 'out', amount: 5000, date: '2026-08-01', note: OB },
+    { id: 2, personId: 1, eventId: null, dir: 'in', amount: 2000, date: '2026-08-04', note: 'gift' },
+  ];
+  const ot = findOpeningTxn(t0, 1, [OB, OB_ML]);
+  const t1 = t0.filter((x) => x.id !== ot.id); // mimics removeTxn
+  assert.deepStrictEqual(t1.map((x) => x.id), [2]); // only the opening txn gone
+  assert.strictEqual(bal(t1, 1), -2000);
 });
 
 ok('fmt Indian grouping', () => {

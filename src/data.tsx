@@ -23,6 +23,7 @@ type Data = {
   setEventStatus: (id: number, status: 'open' | 'closed') => Promise<void>;
   removeEvent: (id: number) => Promise<void>;
   addTxn: (t: Omit<Txn, 'id'>) => Promise<number>;
+  editTxn: (id: number, fields: { dir: 'in' | 'out'; amount: number; date: string | null; note: string }) => Promise<void>;
   removeTxn: (id: number) => Promise<void>;
   addInvitation: (hostId: number, date: string, note: string) => Promise<number>;
   /* paid (with optional linked txn) or removed — cancels all reminders */
@@ -111,6 +112,10 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
         const id = await db.insertTxn(t);
         await refresh();
         return id;
+      },
+      editTxn: async (id, fields) => {
+        await db.updateTxn(id, fields);
+        await refresh();
       },
       removeTxn: async (id) => {
         await db.deleteTxn(id);

@@ -1,6 +1,5 @@
 import React, { useEffect, useState } from 'react';
-import { Platform, Pressable, StyleSheet, View } from 'react-native';
-import { useNavigation } from '@react-navigation/native';
+import { Platform, View } from 'react-native';
 import { useData } from '../data';
 import {
   dstr,
@@ -18,7 +17,7 @@ import { Avatar, Btn, Card, Empty, listCardWrap, Row, SearchInput, SecTitle, Txt
 import { InvitationChip } from '../components/InvitationChip';
 import { AddInvitationFlow } from '../components/AddInvitationFlow';
 import { SearchableList } from '../components/SearchableList';
-import { PayHandsIcon, PlusIcon, TrashIcon } from '../components/Icons';
+import { PayHandsIcon, PlusIcon } from '../components/Icons';
 import { Sheet } from '../components/Sheet';
 import { SettingsSheet } from '../sheets/SettingsSheet';
 import { PersonPickerSheet } from '../sheets/PersonPickerSheet';
@@ -27,7 +26,6 @@ import { EntrySheet, EntryCtx } from '../sheets/EntrySheet';
 import { confirmSheet } from '../components/ConfirmSheet';
 import { toast } from '../components/Toast';
 import { getPermissionGranted, notificationsSupported } from '../notifications';
-import type { RootNav } from '../nav';
 
 type PaymentItem = Txn & { name: string };
 
@@ -36,8 +34,7 @@ const INV_PAGE = 25;
 
 /* Payments tab: invitations to others' payatts + everything I gave (dir='out'). */
 export function PaymentsScreen() {
-  const nav = useNavigation<RootNav>();
-  const { t, tp, lang, people, txns, invitations, removeTxn, closeInv } = useData();
+  const { t, tp, lang, people, txns, invitations, closeInv } = useData();
   const [settingsOpen, setSettingsOpen] = useState(false);
   /* "Pay a payat" chain: picker → amount sheet (or new-person → amount sheet) */
   const [pickOpen, setPickOpen] = useState(false);
@@ -66,12 +63,6 @@ export function PaymentsScreen() {
   const pending = pendingInvitations(invitations).map((i) => ({ ...i, name: nameOf.get(i.hostId) ?? '' }));
   const invPage = pageSlice(searchFilter(pending, invQ, ['name', 'note']), invShown);
 
-  const delTxn = async (id: number) => {
-    if (!(await confirmSheet({ message: t('qDelEntry'), destructive: true }))) return;
-    await removeTxn(id);
-    toast(t('tDeleted'));
-  };
-
   const markPaid = async (inv: Invitation) => {
     setInvActionFor(null);
     if (!(await confirmSheet({ message: t('qMarkPaid'), confirmLabel: t('markPaid'), destructive: false }))) return;
@@ -86,8 +77,11 @@ export function PaymentsScreen() {
     toast(t('tDeleted'));
   };
 
-  const paymentRow = (x: PaymentItem, index: number, count: number, deletable: boolean) => (
-    <Row last={index === count - 1} onPress={() => nav.navigate('Person', { id: x.personId })}>
+  const paymentRow = (x: PaymentItem, index: number, count: number) => (
+    <Row
+      last={index === count - 1}
+      onPress={() => setEntryCtx({ personId: x.personId, dir: x.dir, eventId: x.eventId ?? undefined, txn: x })}
+    >
       <Avatar name={x.name || '?'} />
       <View style={{ flex: 1, minWidth: 0 }}>
         <Txt w={700} size={16.5} color={C.green} num numberOfLines={1}>
@@ -98,15 +92,6 @@ export function PaymentsScreen() {
           {x.note ? ` · ${x.note}` : ''}
         </Txt>
       </View>
-      {deletable ? (
-        <Pressable
-          onPress={() => delTxn(x.id)}
-          accessibilityLabel="Delete"
-          style={({ pressed }) => [st.mini, pressed && { backgroundColor: C.cotton }]}
-        >
-          <TrashIcon />
-        </Pressable>
-      ) : null}
     </Row>
   );
 
@@ -185,7 +170,7 @@ export function PaymentsScreen() {
             <Card>
               {recent.length ? (
                 recent.map((x, i) => (
-                  <React.Fragment key={x.id}>{paymentRow(x, i, recent.length, false)}</React.Fragment>
+                  <React.Fragment key={x.id}>{paymentRow(x, i, recent.length)}</React.Fragment>
                 ))
               ) : (
                 <Empty title={t('emptyPayT')} desc={t('emptyPayD')} />
@@ -194,7 +179,7 @@ export function PaymentsScreen() {
             <SecTitle>{t('allPayments')}</SecTitle>
           </View>
         }
-        renderRow={(item, index, count) => paymentRow(item, index, count, true)}
+        renderRow={(item, index, count) => paymentRow(item, index, count)}
       />
 
       <SettingsSheet visible={settingsOpen} onClose={() => setSettingsOpen(false)} />
@@ -269,7 +254,3 @@ export function PaymentsScreen() {
     </View>
   );
 }
-
-const st = StyleSheet.create({
-  mini: { width: 38, height: 38, borderRadius: 10, alignItems: 'center', justifyContent: 'center' },
-});

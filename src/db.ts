@@ -150,6 +150,22 @@ export async function insertTxn(t: Omit<Txn, 'id'>): Promise<number> {
   return r.lastInsertRowId;
 }
 
+/* Correct an existing entry in place — keeps its id, personId and eventId so
+   event links, ordering and balances stay consistent. */
+export async function updateTxn(
+  id: number,
+  fields: { dir: 'in' | 'out'; amount: number; date: string | null; note: string }
+): Promise<void> {
+  await need().runAsync(
+    'UPDATE txns SET dir = ?, amount = ?, date = ?, note = ? WHERE id = ?',
+    fields.dir,
+    fields.amount,
+    fields.date,
+    fields.note,
+    id
+  );
+}
+
 export async function deleteTxn(id: number): Promise<void> {
   await need().runAsync('DELETE FROM txns WHERE id = ?', id);
 }

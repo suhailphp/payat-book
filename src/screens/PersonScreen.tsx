@@ -7,12 +7,10 @@ import { C, RADIUS, SHADOW } from '../theme';
 import { KasavuHeader } from '../components/Header';
 import { Btn, Empty, Row, SecTitle, Txt } from '../components/UI';
 import { SearchableList } from '../components/SearchableList';
-import { EditIcon, TrashIcon, WaIcon } from '../components/Icons';
+import { EditIcon, WaIcon } from '../components/Icons';
 import { PersonFormSheet } from '../sheets/PersonFormSheet';
 import { EntrySheet, EntryCtx } from '../sheets/EntrySheet';
 import { SettingsSheet } from '../sheets/SettingsSheet';
-import { confirmSheet } from '../components/ConfirmSheet';
-import { toast } from '../components/Toast';
 import { shareOnWhatsApp } from '../share';
 import type { RootNav, RootParams } from '../nav';
 
@@ -22,7 +20,7 @@ export function PersonScreen() {
   const nav = useNavigation<RootNav>();
   const route = useRoute<RouteProp<RootParams, 'Person'>>();
   const pid = route.params.id;
-  const { t, tp, lang, people, events, txns, meta, removeTxn } = useData();
+  const { t, tp, lang, people, events, txns, meta } = useData();
   const [editOpen, setEditOpen] = useState(false);
   const [settingsOpen, setSettingsOpen] = useState(false);
   const [entryCtx, setEntryCtx] = useState<EntryCtx | null>(null);
@@ -40,12 +38,6 @@ export function PersonScreen() {
     .filter((x) => x.personId === pid)
     .sort((a, b2) => (b2.date || '').localeCompare(a.date || '') || b2.id - a.id)
     .map((x) => ({ ...x, evTitle: events.find((e) => e.id === x.eventId)?.title ?? '' }));
-
-  const delTxn = async (id: number) => {
-    if (!(await confirmSheet({ message: t('qDelEntry'), destructive: true }))) return;
-    await removeTxn(id);
-    toast(t('tDeleted'));
-  };
 
   return (
     <View style={{ flex: 1, backgroundColor: C.cotton }}>
@@ -107,7 +99,10 @@ export function PersonScreen() {
           </View>
         }
         renderRow={(x, index, count) => (
-          <Row last={index === count - 1}>
+          <Row
+            last={index === count - 1}
+            onPress={() => setEntryCtx({ personId: x.personId, dir: x.dir, eventId: x.eventId ?? undefined, txn: x })}
+          >
             <View style={{ flex: 1, minWidth: 0 }}>
               <Txt w={700} size={16.5} color={x.dir === 'in' ? C.red : C.green} num>
                 {x.dir === 'in' ? tp('ReceivedCap', { a: fmt(x.amount) }) : tp('GaveCap', { a: fmt(x.amount) })}
@@ -118,13 +113,6 @@ export function PersonScreen() {
                 {x.note ? ` · ${x.note}` : ''}
               </Txt>
             </View>
-            <Pressable
-              onPress={() => delTxn(x.id)}
-              accessibilityLabel="Delete"
-              style={({ pressed }) => [st.mini, pressed && { backgroundColor: C.cotton }]}
-            >
-              <TrashIcon />
-            </Pressable>
           </Row>
         )}
       />
@@ -145,5 +133,4 @@ const st = StyleSheet.create({
     padding: 20,
     ...SHADOW,
   },
-  mini: { width: 38, height: 38, borderRadius: 10, alignItems: 'center', justifyContent: 'center' },
 });
