@@ -35,7 +35,9 @@ export async function setupNotifications(): Promise<void> {
     await Notifications.setNotificationChannelAsync(CHANNEL_ID, {
       name: 'Payat reminders',
       importance: Notifications.AndroidImportance.HIGH,
-      sound: 'default',
+      /* omit `sound` → the system default notification sound. The channel's
+         `sound` is a custom filename in res/raw; passing 'default' made it
+         hunt for a file named "default" and log "Custom sound not found". */
     });
   }
 }
@@ -79,7 +81,7 @@ export async function scheduleInvitationReminders(
           : tp('notifOverdue', { n: hostName });
     ids.push(
       await Notifications.scheduleNotificationAsync({
-        content: { title, body, sound: 'default' },
+        content: { title, body, sound: true },
         trigger: {
           type: Notifications.SchedulableTriggerInputTypes.DATE,
           date: when,
@@ -94,7 +96,7 @@ export async function scheduleInvitationReminders(
        test doesn't have to wait for 09:00 */
     ids.push(
       await Notifications.scheduleNotificationAsync({
-        content: { title: tp('notifToday', { n: hostName }) + ' [dev]', body, sound: 'default' },
+        content: { title: tp('notifToday', { n: hostName }) + ' [dev]', body, sound: true },
         trigger: {
           type: Notifications.SchedulableTriggerInputTypes.DATE,
           date: new Date(now + 15000),
