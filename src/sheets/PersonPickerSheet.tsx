@@ -29,7 +29,13 @@ export function PersonPickerSheet({
   const list = [...people].sort((a, b) => a.name.localeCompare(b.name));
 
   return (
-    <Sheet visible={visible} onClose={onClose} title={title} scrollable={false}>
+    <Sheet
+      visible={visible}
+      onClose={onClose}
+      title={title}
+      scrollable={false}
+      footer={<Btn label={t('newPerson')} kind="ghost" icon={<PlusIcon color={C.greenDeep} />} onPress={onNew} />}
+    >
       <SearchableList
         data={list}
         keyOf={(p) => String(p.id)}
@@ -49,7 +55,6 @@ export function PersonPickerSheet({
           </Row>
         )}
       />
-      <Btn label={t('newPerson')} kind="ghost" icon={<PlusIcon color={C.greenDeep} />} onPress={onNew} />
     </Sheet>
   );
 }

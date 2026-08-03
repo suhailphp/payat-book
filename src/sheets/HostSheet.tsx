@@ -40,10 +40,9 @@ export function HostSheet({
   };
 
   return (
-    <Sheet visible={visible} onClose={onClose} title={t('hostBtn')}>
+    <Sheet visible={visible} onClose={onClose} title={t('hostBtn')} footer={<Btn label={t('create')} onPress={save} />}>
       <Field label={t('fPayatName')} value={title} onChangeText={setTitle} placeholder={t('payatNamePH')} autoFocus />
       <DateField label={t('fDate')} value={date} onChange={setDate} lang={lang} />
-      <Btn label={t('create')} onPress={save} />
     </Sheet>
   );
 }

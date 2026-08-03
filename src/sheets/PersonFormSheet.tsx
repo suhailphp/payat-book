@@ -82,7 +82,17 @@ export function PersonFormSheet({
   };
 
   return (
-    <Sheet visible={visible} onClose={onClose} title={person ? t('editPerson') : t('addPerson')}>
+    <Sheet
+      visible={visible}
+      onClose={onClose}
+      title={person ? t('editPerson') : t('addPerson')}
+      footer={
+        <>
+          <Btn label={person ? t('saveChanges') : t('addPerson')} onPress={save} />
+          {person ? <Btn label={t('delPerson')} kind="danger" onPress={del} /> : null}
+        </>
+      }
+    >
       <Field label={t('fName')} value={name} onChangeText={setName} autoCorrect={false} />
       <Field
         label={t('fPhone')}
@@ -113,8 +123,6 @@ export function PersonFormSheet({
           </View>
         </>
       ) : null}
-      <Btn label={person ? t('saveChanges') : t('addPerson')} onPress={save} />
-      {person ? <Btn label={t('delPerson')} kind="danger" onPress={del} /> : null}
     </Sheet>
   );
 }

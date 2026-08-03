@@ -28,10 +28,14 @@ export function InvitationSheet({
   }, [host]);
 
   return (
-    <Sheet visible={!!host} onClose={onClose} title={host ? `${t('addInvitation')} — ${host.name}` : undefined}>
+    <Sheet
+      visible={!!host}
+      onClose={onClose}
+      title={host ? `${t('addInvitation')} — ${host.name}` : undefined}
+      footer={<Btn label={t('addInvitation')} onPress={() => onSave(date, note.trim())} />}
+    >
       <DateField label={t('invDate')} value={date} onChange={setDate} lang={lang} />
       <Field label={t('fNote')} value={note} onChangeText={setNote} placeholder={t('notePH')} />
-      <Btn label={t('addInvitation')} onPress={() => onSave(date, note.trim())} />
     </Sheet>
   );
 }

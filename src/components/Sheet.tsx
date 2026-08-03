@@ -1,6 +1,7 @@
 import React, { useEffect, useRef, useState } from 'react';
 import {
   Animated,
+  Dimensions,
   Keyboard,
   Modal,
   Platform,
@@ -23,12 +24,16 @@ export function Sheet({
   onClose,
   title,
   children,
+  footer,
   scrollable = true,
 }: {
   visible: boolean;
   onClose: () => void;
   title?: string;
   children: React.ReactNode;
+  /* Pinned below the scroll area, outside it, so the primary action button
+     is never clipped by the keyboard and needs no scrolling to reach. */
+  footer?: React.ReactNode;
   /* false = plain View content (for sheets holding their own FlatList) */
   scrollable?: boolean;
 }) {
@@ -50,13 +55,24 @@ export function Sheet({
     }
   }, [visible]);
 
-  /* RN Modal opens its own Android window that adjustResize doesn't reach, so
-     the keyboard would overlap the sheet. Track the keyboard height ourselves
-     and lift the whole sheet to sit right above it (works on iOS too). */
+  /* RN Modal opens its own full-screen Android window that adjustResize doesn't
+     reach, so the keyboard would overlap the sheet. Track the keyboard ourselves
+     and lift the whole sheet to sit right above it (works on iOS too). We derive
+     the lift from the keyboard's absolute top (`screenY`) against the physical
+     screen, not its `height`: under a full-screen (statusBarTranslucent) Modal a
+     3-button nav bar sits below the keyboard, and `height` excludes it — which
+     would under-lift the sheet by the nav-bar height and clip the footer. */
   useEffect(() => {
     const showEvt = Platform.OS === 'ios' ? 'keyboardWillShow' : 'keyboardDidShow';
     const hideEvt = Platform.OS === 'ios' ? 'keyboardWillHide' : 'keyboardDidHide';
-    const s = Keyboard.addListener(showEvt, (e) => setKb(e.endCoordinates?.height ?? 0));
+    const onShow = (e: { endCoordinates?: { height?: number; screenY?: number } }) => {
+      const c = e.endCoordinates;
+      const screenH = Dimensions.get('screen').height;
+      const lift =
+        c?.screenY != null && c.screenY > 0 ? Math.max(0, screenH - c.screenY) : c?.height ?? 0;
+      setKb(lift);
+    };
+    const s = Keyboard.addListener(showEvt, onShow);
     const h = Keyboard.addListener(hideEvt, () => setKb(0));
     return () => {
       s.remove();
@@ -66,9 +82,19 @@ export function Sheet({
 
   if (!shown) return null;
   /* keep the sheet between the status bar and the keyboard; inner scroll views
-     handle any overflow so the focused field is always reachable. */
-  const maxHeight = Math.min(height * 0.88, height - kb - insets.top - 10);
+     handle any overflow so the focused field is always reachable. Use the
+     physical screen height to match the full-screen Modal + screenY-based lift. */
+  const screenH = Dimensions.get('screen').height;
+  const maxHeight = Math.min(screenH * 0.88, screenH - kb - insets.top - 10);
   const padBottom = 20 + (kb > 0 ? 0 : insets.bottom);
+  /* When a footer is pinned it carries the bottom safe-area padding; the
+     scroll area only needs a little breathing room before it. */
+  const scrollPadBottom = footer ? 12 : padBottom;
+  const heading = title ? (
+    <Txt w={700} size={19} style={{ marginBottom: 14 }}>
+      {title}
+    </Txt>
+  ) : null;
   return (
     <Modal transparent visible animationType="none" onRequestClose={onClose} statusBarTranslucent>
       <Pressable style={st.scrim} onPress={onClose} />
@@ -76,27 +102,25 @@ export function Sheet({
         <View style={st.handle} />
         {scrollable ? (
           <ScrollView
+            /* flexShrink lets the ScrollView give up height to the pinned
+               footer and become scrollable inside the maxHeight-capped sheet —
+               without it the content keeps its full height and just gets
+               clipped, hiding whatever sits at the bottom. */
+            style={st.scroll}
             keyboardShouldPersistTaps="handled"
             keyboardDismissMode="interactive"
-            contentContainerStyle={{ paddingHorizontal: 18, paddingBottom: padBottom }}
+            contentContainerStyle={{ paddingHorizontal: 18, paddingBottom: scrollPadBottom, flexGrow: 1 }}
           >
-            {title ? (
-              <Txt w={700} size={19} style={{ marginBottom: 14 }}>
-                {title}
-              </Txt>
-            ) : null}
+            {heading}
             {children}
           </ScrollView>
         ) : (
-          <View style={{ paddingHorizontal: 18, paddingBottom: padBottom }}>
-            {title ? (
-              <Txt w={700} size={19} style={{ marginBottom: 14 }}>
-                {title}
-              </Txt>
-            ) : null}
+          <View style={[st.scroll, { paddingHorizontal: 18, paddingBottom: scrollPadBottom }]}>
+            {heading}
             {children}
           </View>
         )}
+        {footer ? <View style={{ paddingHorizontal: 18, paddingTop: 4, paddingBottom: padBottom }}>{footer}</View> : null}
       </Animated.View>
       <ToastHost />
     </Modal>
@@ -104,6 +128,7 @@ export function Sheet({
 }
 
 const st = StyleSheet.create({
+  scroll: { flexShrink: 1 },
   scrim: { position: 'absolute', top: 0, left: 0, right: 0, bottom: 0, backgroundColor: C.scrim },
   sheet: {
     position: 'absolute',

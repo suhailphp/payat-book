@@ -63,6 +63,7 @@ export function EntrySheet({
       visible={!!ctx}
       onClose={onClose}
       title={ctx.dir === 'in' ? `${p.name} — ${t('theyGave')}` : `${t('iGave')} — ${p.name}`}
+      footer={<Btn label={t('saveEntry')} onPress={save} />}
     >
       <Field
         label={t('fAmount')}
@@ -88,7 +89,6 @@ export function EntrySheet({
       ) : null}
       <DateField label={t('fDate')} value={date} onChange={setDate} lang={lang} />
       <Field label={t('fNote')} value={note} onChangeText={setNote} placeholder={t('notePH')} />
-      <Btn label={t('saveEntry')} onPress={save} />
     </Sheet>
   );
 }
