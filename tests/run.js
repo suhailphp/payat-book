@@ -50,6 +50,18 @@ txns.push({ id: 2, personId: 1, eventId: null, dir: 'out', amount: 2000, date: '
 ok('out 2000 flips balance to +1000', () => assert.strictEqual(bal(txns, 1), 1000));
 ok('chips: they owe → in suggests 1000/2000', () => assert.strictEqual(owedFor(bal(txns, 1), 'in'), 1000));
 
+ok('opening balance: I should receive → out → +, I should give → in → −', () => {
+  // "I should receive" is stored as an out entry dated today
+  const recv = [{ id: 1, personId: 7, eventId: null, dir: 'out', amount: 5000, date: '2026-08-03', note: 'Opening balance' }];
+  assert.strictEqual(bal(recv, 7), 5000);
+  // "I should give" is stored as an in entry
+  const give = [{ id: 1, personId: 7, eventId: null, dir: 'in', amount: 5000, date: '2026-08-03', note: 'Opening balance' }];
+  assert.strictEqual(bal(give, 7), -5000);
+  // opening entry + a later real entry compose normally
+  const both = [...recv, { id: 2, personId: 7, eventId: null, dir: 'in', amount: 2000, date: '2026-08-04', note: '' }];
+  assert.strictEqual(bal(both, 7), 3000);
+});
+
 ok('fmt Indian grouping', () => {
   assert.strictEqual(fmt(1000), '₹1,000');
   assert.strictEqual(fmt(100000), '₹1,00,000');

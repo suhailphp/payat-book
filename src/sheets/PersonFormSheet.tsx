@@ -1,8 +1,9 @@
 import React, { useEffect, useState } from 'react';
+import { View } from 'react-native';
 import { useData } from '../data';
-import type { Person } from '../lib';
+import { today, type Person } from '../lib';
 import { Sheet } from '../components/Sheet';
-import { Btn, Field } from '../components/UI';
+import { Btn, Field, Seg } from '../components/UI';
 import { confirmSheet } from '../components/ConfirmSheet';
 import { toast } from '../components/Toast';
 
@@ -23,14 +24,19 @@ export function PersonFormSheet({
   onSaved?: (id: number, isNew: boolean) => void;
   onDeleted?: () => void;
 }) {
-  const { t, addPerson, editPerson, removePerson } = useData();
+  const { t, addPerson, editPerson, removePerson, addTxn } = useData();
   const [name, setName] = useState('');
   const [phone, setPhone] = useState('');
+  /* opening balance — only offered when creating a new person */
+  const [obAmount, setObAmount] = useState('');
+  const [obDir, setObDir] = useState<'receive' | 'give'>('receive');
 
   useEffect(() => {
     if (visible) {
       setName(person?.name ?? '');
       setPhone(person?.phone ?? '');
+      setObAmount('');
+      setObDir('receive');
     }
   }, [visible, person]);
 
@@ -47,6 +53,19 @@ export function PersonFormSheet({
       onSaved?.(person.id, false);
     } else {
       const id = await addPerson(n, phone.trim());
+      /* record the opening balance as a dated entry so balance stays = Σ txns.
+         "I should receive" runs in the out direction; "I should give" in the in. */
+      const ob = parseInt((obAmount || '').replace(/[^\d]/g, ''), 10);
+      if (ob) {
+        await addTxn({
+          personId: id,
+          eventId: null,
+          dir: obDir === 'receive' ? 'out' : 'in',
+          amount: ob,
+          date: today(),
+          note: t('obNote'),
+        });
+      }
       onClose();
       if (!quiet) toast(t('tPersonAdded'));
       onSaved?.(id, true);
@@ -73,6 +92,27 @@ export function PersonFormSheet({
         keyboardType="phone-pad"
         placeholder="+91 98765 43210"
       />
+      {!person ? (
+        <>
+          <Field
+            label={t('openingBalance')}
+            value={obAmount}
+            onChangeText={setObAmount}
+            keyboardType="number-pad"
+            placeholder="0"
+          />
+          <View style={{ marginTop: -4, marginBottom: 14 }}>
+            <Seg
+              options={[
+                { value: 'receive', label: t('obReceive') },
+                { value: 'give', label: t('obGive') },
+              ]}
+              value={obDir}
+              onChange={(v) => setObDir(v as 'receive' | 'give')}
+            />
+          </View>
+        </>
+      ) : null}
       <Btn label={person ? t('saveChanges') : t('addPerson')} onPress={save} />
       {person ? <Btn label={t('delPerson')} kind="danger" onPress={del} /> : null}
     </Sheet>
