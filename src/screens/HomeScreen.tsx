@@ -4,6 +4,7 @@ import { useNavigation } from '@react-navigation/native';
 import { useData } from '../data';
 import {
   bubbleItems,
+  dayCountLabel,
   daysSince,
   dstr,
   eventTotal,
@@ -220,7 +221,7 @@ export function HomeScreen() {
                       {r.person.name}
                     </Txt>
                     <Txt size={13.5} color={C.inkSoft} num>
-                      {tp('daysAgo', { d: daysSince(r.lastDate, today()) })}
+                      {dayCountLabel(daysSince(r.lastDate, today()), 'daysAgo1', 'daysAgo', t, tp)}
                     </Txt>
                   </View>
                   <BalChip b={r.b} settledLabel={t('settled')} />

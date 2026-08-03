@@ -28,8 +28,10 @@ const {
   closeInvitation,
   pendingInvitations,
   urgentInvitation,
+  dayCountLabel,
 } = require('../.testbuild/lib');
 const { buildShareText } = require('../.testbuild/share');
+const { tFor, tpFor } = require('../.testbuild/i18n');
 
 let n = 0;
 const ok = (name, fn) => {
@@ -461,6 +463,20 @@ ok('daysSince', () => {
   assert.strictEqual(daysSince('2026-07-01', '2026-07-31'), 30);
   assert.strictEqual(daysSince('2026-07-31', '2026-07-31'), 0);
   assert.strictEqual(daysSince('2026-08-05', '2026-07-31'), 0); // future clamps to 0
+});
+
+ok('dayCountLabel: singular only at 1, plural for 0/2+, both languages', () => {
+  const t = tFor('en'), tp = tpFor('en');
+  assert.strictEqual(dayCountLabel(0, 'daysAgo1', 'daysAgo', t, tp), '0 days ago');
+  assert.strictEqual(dayCountLabel(1, 'daysAgo1', 'daysAgo', t, tp), '1 day ago');
+  assert.strictEqual(dayCountLabel(2, 'daysAgo1', 'daysAgo', t, tp), '2 days ago');
+  assert.strictEqual(dayCountLabel(1, 'daysLeft1', 'daysLeft', t, tp), '1 day left');
+  assert.strictEqual(dayCountLabel(27, 'daysLeft1', 'daysLeft', t, tp), '27 days left');
+  const tm = tFor('ml'), tpm = tpFor('ml');
+  assert.strictEqual(dayCountLabel(1, 'daysAgo1', 'daysAgo', tm, tpm), 'ഒരു ദിവസം മുൻപ്');
+  assert.strictEqual(dayCountLabel(5, 'daysAgo1', 'daysAgo', tm, tpm), '5 ദിവസം മുൻപ്');
+  assert.strictEqual(dayCountLabel(1, 'daysLeft1', 'daysLeft', tm, tpm), 'ഒരു ദിവസം ബാക്കി');
+  assert.strictEqual(dayCountLabel(27, 'daysLeft1', 'daysLeft', tm, tpm), '27 ദിവസം ബാക്കി');
 });
 
 /* ---------- v6: invitations + reminders ---------- */

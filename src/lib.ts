@@ -310,6 +310,16 @@ export const waitingLongest = (people: Person[], txns: Txn[], n = 3): WaitingRow
 export const daysSince = (iso: string, todayIso: string): number =>
   Math.max(0, Math.floor((+new Date(todayIso + 'T00:00') - +new Date(iso + 'T00:00')) / 864e5));
 
+/* Grammatical day-count label: the singular key for exactly one day
+   ("1 day ago" / "1 day left"), the plural key with {d} otherwise (incl. 0). */
+export const dayCountLabel = (
+  d: number,
+  singularKey: string,
+  pluralKey: string,
+  t: (k: string) => string,
+  tp: (k: string, vars: Record<string, string | number>) => string
+): string => (d === 1 ? t(singularKey) : tp(pluralKey, { d }));
+
 /* ---- v4: search + pagination (pure, shared by SearchableList and the
    hosting screen's sections) ---- */
 
