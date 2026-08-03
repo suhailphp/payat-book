@@ -56,14 +56,27 @@ cd android && ./gradlew assembleRelease
 # → android/app/build/outputs/apk/release/app-release.apk
 ```
 
-Release signing expects `android/app/payat-release.keystore` plus
-`PAYAT_RELEASE_*` entries in `android/gradle.properties` (both gitignored —
-kept only on the build machine; back up the keystore and its password
-outside the repo). If `android/` is ever regenerated with
-`prebuild --clean`, re-add the `signingConfigs.release` block in
-`android/app/build.gradle` and the gradle.properties entries.
 Use Android Studio's bundled JDK: `JAVA_HOME="/Applications/Android
 Studio.app/Contents/jbr/Contents/Home"`.
+
+**Build-tools fix (automatic).** Some RN community libraries (e.g.
+`@react-native-community/datetimepicker`) don't declare a
+`buildToolsVersion`, so AGP falls back to its bundled default (35.0.0)
+which the installed SDK can't parse (repository XML v4 vs v3) and can't
+auto-download — `assembleRelease` then fails during that module's
+config. The Expo config plugin `plugins/withBuildToolsFix.js` (registered
+in `app.json`) injects a `subprojects` block into `android/build.gradle`
+that forces every Android module onto the project's build tools (36.0.0),
+so this survives `expo prebuild`. No manual step needed.
+
+**Release signing** expects `android/app/payat-release.keystore` plus
+`PAYAT_RELEASE_*` entries in `android/gradle.properties` (both gitignored —
+kept only on the build machine; back up the keystore and its password
+outside the repo). This part is *not* yet automated by a config plugin, so
+if `android/` is ever regenerated with `prebuild --clean`, re-add the
+`signingConfigs.release` block in `android/app/build.gradle` and the
+gradle.properties entries (the `withBuildToolsFix` plugin re-applies
+automatically; only signing needs re-adding).
 
 ## Balance model
 

@@ -43,7 +43,8 @@
           "icon": "./assets/notification-icon.png",
           "color": "#C9A227"
         }
-      ]
+      ],
+      "./plugins/withBuildToolsFix"
     ]
   }
 }
