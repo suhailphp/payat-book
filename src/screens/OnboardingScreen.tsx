@@ -1,5 +1,5 @@
-import React, { useState } from 'react';
-import { KeyboardAvoidingView, Platform, Pressable, ScrollView, View } from 'react-native';
+import React, { useEffect, useState } from 'react';
+import { Keyboard, KeyboardAvoidingView, Platform, Pressable, ScrollView, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useData } from '../data';
 import { C } from '../theme';
@@ -14,6 +14,18 @@ export function OnboardingScreen() {
   const { t, lang, setLang, setMeta } = useData();
   const insets = useSafeAreaInsets();
   const [name, setName] = useState('');
+  /* Centered looks best at rest, but on a short screen the keyboard would push
+     the Start button off-screen — top-align while the keyboard is open so the
+     field and button stay visible above it. */
+  const [kbUp, setKbUp] = useState(false);
+  useEffect(() => {
+    const s = Keyboard.addListener('keyboardDidShow', () => setKbUp(true));
+    const h = Keyboard.addListener('keyboardDidHide', () => setKbUp(false));
+    return () => {
+      s.remove();
+      h.remove();
+    };
+  }, []);
 
   const start = async () => {
     const n = name.trim();
@@ -30,17 +42,21 @@ export function OnboardingScreen() {
         style={{ flex: 1, backgroundColor: C.cotton }}
         contentContainerStyle={{
           flexGrow: 1,
-          justifyContent: 'center',
+          justifyContent: kbUp ? 'flex-start' : 'center',
           padding: 24,
           paddingTop: insets.top + 24,
           paddingBottom: insets.bottom + 24,
         }}
         keyboardShouldPersistTaps="handled"
       >
-        <View style={{ alignItems: 'center', marginBottom: 28 }}>
-          <BrandLogo height={56} />
-        </View>
-        <Txt w={700} size={22} color={C.greenDeep} style={{ textAlign: 'center', marginBottom: 20 }}>
+        {/* hide the logo while typing so the field + Start button always fit
+           above the keyboard, even on short screens */}
+        {!kbUp ? (
+          <View style={{ alignItems: 'center', marginBottom: 28 }}>
+            <BrandLogo height={56} />
+          </View>
+        ) : null}
+        <Txt w={700} size={22} color={C.greenDeep} style={{ textAlign: 'center', marginBottom: kbUp ? 14 : 20 }}>
           {t('welcome')}
         </Txt>
         <Field label={t('whatsYourName')} hint={t('nameHint')} value={name} onChangeText={setName} autoCorrect={false} />
