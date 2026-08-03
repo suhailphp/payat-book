@@ -2,7 +2,7 @@ import React, { useEffect } from 'react';
 import { DefaultTheme, NavigationContainer } from '@react-navigation/native';
 import { createNativeStackNavigator } from '@react-navigation/native-stack';
 import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
-import { SafeAreaProvider } from 'react-native-safe-area-context';
+import { SafeAreaProvider, useSafeAreaInsets } from 'react-native-safe-area-context';
 import { StatusBar } from 'expo-status-bar';
 import * as SplashScreen from 'expo-splash-screen';
 import {
@@ -36,13 +36,27 @@ const Stack = createNativeStackNavigator<RootParams>();
 
 function Tabs() {
   const { t } = useData();
+  const insets = useSafeAreaInsets();
   return (
     <Tab.Navigator
       screenOptions={{
         headerShown: false,
         tabBarActiveTintColor: C.green,
         tabBarInactiveTintColor: C.inkSoft,
-        tabBarStyle: { backgroundColor: C.paper, borderTopColor: C.line, borderTopWidth: 1, height: 62 },
+        /* Lift the bar above the system nav area: on 3-button-nav devices
+           insets.bottom is the tall nav bar, on gesture-nav it's the slim
+           hint. The paper background fills the whole height (including the
+           inset) so there's no gap stripe, and the 6px keeps the labels off
+           the nav bar. Explicit height + paddingBottom override React
+           Navigation's own inset handling, so gesture phones don't double-pad. */
+        tabBarStyle: {
+          backgroundColor: C.paper,
+          borderTopColor: C.line,
+          borderTopWidth: 1,
+          height: 62 + insets.bottom,
+          paddingTop: 6,
+          paddingBottom: insets.bottom + 6,
+        },
         tabBarLabelStyle: { fontFamily: FONT.semibold, fontSize: 12.5 },
       }}
     >
