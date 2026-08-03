@@ -1,7 +1,7 @@
 import React, { useEffect, useRef, useState } from 'react';
 import {
   Animated,
-  KeyboardAvoidingView,
+  Keyboard,
   Modal,
   Platform,
   Pressable,
@@ -36,6 +36,7 @@ export function Sheet({
   const insets = useSafeAreaInsets();
   const y = useRef(new Animated.Value(height)).current;
   const [shown, setShown] = useState(visible);
+  const [kb, setKb] = useState(0);
   const reduced = useReducedMotion();
 
   useEffect(() => {
@@ -49,38 +50,55 @@ export function Sheet({
     }
   }, [visible]);
 
+  /* RN Modal opens its own Android window that adjustResize doesn't reach, so
+     the keyboard would overlap the sheet. Track the keyboard height ourselves
+     and lift the whole sheet to sit right above it (works on iOS too). */
+  useEffect(() => {
+    const showEvt = Platform.OS === 'ios' ? 'keyboardWillShow' : 'keyboardDidShow';
+    const hideEvt = Platform.OS === 'ios' ? 'keyboardWillHide' : 'keyboardDidHide';
+    const s = Keyboard.addListener(showEvt, (e) => setKb(e.endCoordinates?.height ?? 0));
+    const h = Keyboard.addListener(hideEvt, () => setKb(0));
+    return () => {
+      s.remove();
+      h.remove();
+    };
+  }, []);
+
   if (!shown) return null;
+  /* keep the sheet between the status bar and the keyboard; inner scroll views
+     handle any overflow so the focused field is always reachable. */
+  const maxHeight = Math.min(height * 0.88, height - kb - insets.top - 10);
+  const padBottom = 20 + (kb > 0 ? 0 : insets.bottom);
   return (
     <Modal transparent visible animationType="none" onRequestClose={onClose} statusBarTranslucent>
-      <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : undefined} style={{ flex: 1 }}>
-        <Pressable style={st.scrim} onPress={onClose} />
-        <Animated.View style={[st.sheet, { transform: [{ translateY: y }], maxHeight: height * 0.88 }]}>
-          <View style={st.handle} />
-          {scrollable ? (
-            <ScrollView
-              keyboardShouldPersistTaps="handled"
-              contentContainerStyle={{ paddingHorizontal: 18, paddingBottom: 20 + insets.bottom }}
-            >
-              {title ? (
-                <Txt w={700} size={19} style={{ marginBottom: 14 }}>
-                  {title}
-                </Txt>
-              ) : null}
-              {children}
-            </ScrollView>
-          ) : (
-            <View style={{ paddingHorizontal: 18, paddingBottom: 20 + insets.bottom }}>
-              {title ? (
-                <Txt w={700} size={19} style={{ marginBottom: 14 }}>
-                  {title}
-                </Txt>
-              ) : null}
-              {children}
-            </View>
-          )}
-        </Animated.View>
-        <ToastHost />
-      </KeyboardAvoidingView>
+      <Pressable style={st.scrim} onPress={onClose} />
+      <Animated.View style={[st.sheet, { bottom: kb, transform: [{ translateY: y }], maxHeight }]}>
+        <View style={st.handle} />
+        {scrollable ? (
+          <ScrollView
+            keyboardShouldPersistTaps="handled"
+            keyboardDismissMode="interactive"
+            contentContainerStyle={{ paddingHorizontal: 18, paddingBottom: padBottom }}
+          >
+            {title ? (
+              <Txt w={700} size={19} style={{ marginBottom: 14 }}>
+                {title}
+              </Txt>
+            ) : null}
+            {children}
+          </ScrollView>
+        ) : (
+          <View style={{ paddingHorizontal: 18, paddingBottom: padBottom }}>
+            {title ? (
+              <Txt w={700} size={19} style={{ marginBottom: 14 }}>
+                {title}
+              </Txt>
+            ) : null}
+            {children}
+          </View>
+        )}
+      </Animated.View>
+      <ToastHost />
     </Modal>
   );
 }
