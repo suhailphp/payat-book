@@ -57,7 +57,13 @@ function Tabs() {
           paddingTop: 6,
           paddingBottom: insets.bottom + 6,
         },
-        tabBarLabelStyle: { fontFamily: FONT.semibold, fontSize: 12.5 },
+        /* minHeight gives the single-line label box room for descenders: on
+           web React Navigation truncates the label with overflow:hidden, and
+           Baloo Chettan 2's tight metrics leave the intrinsic line box ~11px,
+           shearing the tails of p/y/g ("People", "Payatts", "Payments").
+           (On web only lineHeight/padding don't grow that box — minHeight does;
+           native labels already fit, so this is a harmless floor there.) */
+        tabBarLabelStyle: { fontFamily: FONT.semibold, fontSize: 12.5, minHeight: 16 },
       }}
     >
       <Tab.Screen
