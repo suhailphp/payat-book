@@ -30,6 +30,12 @@ const {
   urgentInvitation,
   dayCountLabel,
   findOpeningTxn,
+  paybackRatios,
+  learnedMultiplier,
+  globalMultiplier,
+  hostForecast,
+  bookRow,
+  DEFAULT_MULTIPLIER,
 } = require('../.testbuild/lib');
 const { buildShareText } = require('../.testbuild/share');
 const { tFor, tpFor, STR } = require('../.testbuild/i18n');
@@ -678,6 +684,121 @@ ok('formatIntlPhone: UAE-style grouping, junk stripped, short passthrough', () =
   assert.strictEqual(formatIntlPhone('919876543210'), '+919 87 654 3210');
   assert.strictEqual(formatIntlPhone('12345'), '+12345');
   assert.strictEqual(formatIntlPhone(''), '');
+});
+
+/* ---------- v7: host forecast ---------- */
+
+const P = (id, name) => ({ id, name, phone: '', ref: '', created: null });
+// person owes 1000 (out), pays back 2000 (ratio 2), owes 2000 again, pays 2000 (ratio 1)
+const pay2then1 = [
+  { id: 1, personId: 1, eventId: null, dir: 'out', amount: 1000, date: '2026-01-01', note: '' }, // owes 1000
+  { id: 2, personId: 1, eventId: null, dir: 'in', amount: 2000, date: '2026-02-01', note: '' }, // pays 2000 → ratio 2, now he owes 1000
+  { id: 3, personId: 1, eventId: null, dir: 'out', amount: 3000, date: '2026-03-01', note: '' }, // owes 2000
+  { id: 4, personId: 1, eventId: null, dir: 'in', amount: 2000, date: '2026-04-01', note: '' }, // pays 2000 → ratio 1
+];
+
+ok('paybackRatios: only counts giving while owing, oldest→newest', () => {
+  assert.deepStrictEqual(paybackRatios(pay2then1, 1), [2, 1]);
+  // an "in" while he already owes THEM (running ≤ 0) is not an observation
+  const owedToThem = [
+    { id: 1, personId: 1, eventId: null, dir: 'in', amount: 500, date: '2026-01-01', note: '' },
+    { id: 2, personId: 1, eventId: null, dir: 'in', amount: 500, date: '2026-02-01', note: '' },
+  ];
+  assert.deepStrictEqual(paybackRatios(owedToThem, 1), []);
+});
+
+ok('learnedMultiplier: mean of ratios (2 then 1 → 1.5), clamped at 3, null when none', () => {
+  assert.strictEqual(learnedMultiplier(pay2then1, 1).multiplier, 1.5);
+  assert.strictEqual(learnedMultiplier(pay2then1, 1).count, 2);
+  // owes 100, pays 500 → ratio 5 → clamped to 3
+  const big = [
+    { id: 1, personId: 1, eventId: null, dir: 'out', amount: 100, date: '2026-01-01', note: '' },
+    { id: 2, personId: 1, eventId: null, dir: 'in', amount: 500, date: '2026-02-01', note: '' },
+  ];
+  assert.strictEqual(learnedMultiplier(big, 1).multiplier, 3);
+  assert.strictEqual(learnedMultiplier([], 1), null);
+});
+
+ok('globalMultiplier: mean across everyone, else the measured default', () => {
+  assert.strictEqual(globalMultiplier([]).multiplier, DEFAULT_MULTIPLIER);
+  assert.strictEqual(globalMultiplier([]).observed, 0);
+  assert.strictEqual(globalMultiplier(pay2then1).multiplier, 1.5); // ratios [2,1]
+  assert.strictEqual(globalMultiplier(pay2then1).observed, 2);
+});
+
+ok('hostForecast: no-history person uses global mean, then default', () => {
+  // one person, positive balance, no giving history → global mean (none) → default 2.03
+  const ppl = [P(1, 'A')];
+  const t = [{ id: 1, personId: 1, eventId: null, dir: 'out', amount: 1000, date: '2026-01-01', note: '' }];
+  const f = hostForecast(ppl, t, 1);
+  assert.strictEqual(f.peopleCount, 1);
+  assert.strictEqual(f.perPerson[0].fromHistory, false);
+  assert.strictEqual(f.perPerson[0].multiplier, DEFAULT_MULTIPLIER);
+  assert.strictEqual(f.expected, Math.round(1000 * DEFAULT_MULTIPLIER));
+  // add a second person WITH history → the historyless one now borrows the global mean
+  const ppl2 = [P(1, 'A'), P(2, 'B')];
+  const t2 = [...t, ...pay2then1.map((x) => ({ ...x, id: x.id + 10, personId: 2 }))];
+  const f2 = hostForecast(ppl2, t2, 1);
+  const a = f2.perPerson.find((x) => x.personId === 1);
+  assert.strictEqual(a.fromHistory, false);
+  assert.strictEqual(a.multiplier, 1.5); // global mean from person 2's ratios [2,1]
+});
+
+ok('hostForecast: excludes zero and negative balances entirely', () => {
+  const ppl = [P(1, 'owes'), P(2, 'settled'), P(3, 'heOwes')];
+  const t = [
+    { id: 1, personId: 1, eventId: null, dir: 'out', amount: 1000, date: '2026-01-01', note: '' }, // +1000
+    // settled with no payback observation (gave first, he returned it)
+    { id: 2, personId: 2, eventId: null, dir: 'in', amount: 500, date: '2026-01-01', note: '' },
+    { id: 3, personId: 2, eventId: null, dir: 'out', amount: 500, date: '2026-01-02', note: '' }, // 0
+    { id: 4, personId: 3, eventId: null, dir: 'in', amount: 800, date: '2026-01-01', note: '' }, // −800
+  ];
+  const f = hostForecast(ppl, t, 1);
+  assert.deepStrictEqual(f.perPerson.map((x) => x.personId), [1]); // only the positive one
+  assert.strictEqual(f.peopleCount, 1);
+  // he-owes person never subtracted: expected is purely from person 1
+  assert.strictEqual(f.expected, Math.round(1000 * DEFAULT_MULTIPLIER));
+});
+
+ok('hostForecast: attendance scales the headline; low/high from the measured spread', () => {
+  const ppl = [P(1, 'A')];
+  const t = [{ id: 1, personId: 1, eventId: null, dir: 'out', amount: 10000, date: '2026-01-01', note: '' }];
+  const full = hostForecast(ppl, t, 1);
+  const half = hostForecast(ppl, t, 0.5);
+  assert.strictEqual(half.expected, Math.round(full.expected * 0.5)); // 100% vs 50% halves it
+  assert.strictEqual(full.low, Math.round(10000 * 1.7)); // sumBalance × 1.70 × attendance
+  assert.strictEqual(full.high, Math.round(10000 * 2.4));
+  assert.ok(full.low < full.expected && full.expected < full.high);
+});
+
+/* ---------- v7: book row assembly ---------- */
+
+ok('bookRow: opening excluded from the 5 cells, oldest→newest, pads under 5', () => {
+  const notes = [STR.en.obNote, STR.ml.obNote];
+  const person = P(1, 'Riyas');
+  const t = [
+    { id: 1, personId: 1, eventId: null, dir: 'out', amount: 5000, date: '2026-01-01', note: STR.en.obNote }, // opening
+    { id: 2, personId: 1, eventId: null, dir: 'in', amount: 1000, date: '2026-02-01', note: '' },
+    { id: 3, personId: 1, eventId: null, dir: 'out', amount: 2000, date: '2026-03-01', note: '' },
+  ];
+  const r = bookRow(person, t, notes);
+  assert.deepStrictEqual(r.opening, { amount: 5000, dir: 'out' });
+  assert.strictEqual(r.entries.length, 2); // opening excluded, 2 real entries
+  assert.deepStrictEqual(r.entries.map((e) => e.amount), [1000, 2000]); // oldest→newest
+  assert.strictEqual(r.balance, 5000 - 1000 + 2000); // 6000
+  assert.strictEqual(r.lastDate, '2026-03-01');
+});
+
+ok('bookRow: keeps only the most recent 5 entries, still oldest→newest', () => {
+  const person = P(2, 'Fathima');
+  const t = [];
+  for (let i = 1; i <= 7; i++)
+    t.push({ id: i, personId: 2, eventId: null, dir: 'out', amount: i * 100, date: `2026-01-0${i}`, note: '' });
+  const r = bookRow(person, t, [STR.en.obNote, STR.ml.obNote]);
+  assert.strictEqual(r.opening, null);
+  assert.strictEqual(r.entries.length, 5);
+  // drops the two oldest (100, 200), keeps 300..700 oldest→newest
+  assert.deepStrictEqual(r.entries.map((e) => e.amount), [300, 400, 500, 600, 700]);
 });
 
 console.log(`\n${n} checks passed`);

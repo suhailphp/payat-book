@@ -49,6 +49,138 @@ export const findOpeningTxn = (txns: Txn[], personId: number, openingNotes: stri
     .filter((x) => x.personId === personId && openingNotes.includes(x.note))
     .sort((a, b) => (a.date || '').localeCompare(b.date || '') || a.id - b.id)[0];
 
+/* ---- v7: "If I host now" collection forecast ----
+   When Hameed hosts, he invites people who OWE him (positive balance) and each
+   typically pays back a multiple of what they owe (measured mean 2.03×). Only
+   positive balances count — people he owes are never subtracted. */
+
+export const DEFAULT_MULTIPLIER = 2.03; // measured mean from the real book
+export const FORECAST_LOW = 1.7; // measured spread (sd ≈ 0.35) → likely-low multiple
+export const FORECAST_HIGH = 2.4; // measured spread → likely-high multiple
+export const DEFAULT_ATTENDANCE = 0.8;
+
+const clampMultiplier = (n: number): number => Math.max(1, Math.min(3, n));
+const mean = (a: number[]): number => a.reduce((s, x) => s + x, 0) / a.length;
+
+/* Payback ratios observed for one person: walk their txns oldest→newest tracking
+   the running balance; each time they gave (dir==='in') while they still owed him
+   (balanceBefore > 0), record amount / balanceBefore. */
+export const paybackRatios = (txns: Txn[], personId: number): number[] => {
+  const rows = txns
+    .filter((x) => x.personId === personId)
+    .sort((a, b) => (a.date || '').localeCompare(b.date || '') || a.id - b.id);
+  let running = 0;
+  const ratios: number[] = [];
+  for (const x of rows) {
+    if (x.dir === 'in' && running > 0) ratios.push(x.amount / running);
+    running += x.dir === 'out' ? x.amount : -x.amount;
+  }
+  return ratios;
+};
+
+/* This person's learned multiplier (mean of their ratios, clamped [1,3]); null
+   when they have no observations yet. */
+export const learnedMultiplier = (
+  txns: Txn[],
+  personId: number
+): { multiplier: number; count: number } | null => {
+  const r = paybackRatios(txns, personId);
+  if (!r.length) return null;
+  return { multiplier: clampMultiplier(mean(r)), count: r.length };
+};
+
+/* The book-wide multiplier: mean of every observation; the measured default when
+   there are none anywhere (e.g. right after the import). */
+export const globalMultiplier = (txns: Txn[]): { multiplier: number; observed: number } => {
+  const all: number[] = [];
+  for (const pid of new Set(txns.map((x) => x.personId))) all.push(...paybackRatios(txns, pid));
+  return all.length
+    ? { multiplier: clampMultiplier(mean(all)), observed: all.length }
+    : { multiplier: DEFAULT_MULTIPLIER, observed: 0 };
+};
+
+export type ForecastPerson = {
+  personId: number;
+  name: string;
+  balance: number;
+  multiplier: number;
+  expected: number;
+  fromHistory: boolean;
+};
+export type Forecast = {
+  expected: number;
+  low: number;
+  high: number;
+  peopleCount: number;
+  attendance: number;
+  observed: number;
+  perPerson: ForecastPerson[];
+};
+
+/* Collection forecast for hosting now. Each invited person's multiplier is their
+   own learned mean, else the global mean, else the measured default. Only
+   positive balances are summed; zero/negative balances never enter the total. */
+export const hostForecast = (people: Person[], txns: Txn[], attendance: number): Forecast => {
+  const glob = globalMultiplier(txns);
+  const perPerson: ForecastPerson[] = [];
+  let sumExpected = 0;
+  let sumBalance = 0;
+  for (const p of people) {
+    const b = bal(txns, p.id);
+    if (b <= 0) continue; // exclude what he owes and settled people, entirely
+    const learned = learnedMultiplier(txns, p.id);
+    const multiplier = learned ? learned.multiplier : glob.multiplier;
+    perPerson.push({
+      personId: p.id,
+      name: p.name,
+      balance: b,
+      multiplier,
+      expected: Math.round(b * multiplier),
+      fromHistory: !!learned,
+    });
+    sumExpected += b * multiplier;
+    sumBalance += b;
+  }
+  perPerson.sort((a, b) => b.expected - a.expected);
+  return {
+    expected: Math.round(sumExpected * attendance),
+    low: Math.round(sumBalance * FORECAST_LOW * attendance),
+    high: Math.round(sumBalance * FORECAST_HIGH * attendance),
+    peopleCount: perPerson.length,
+    attendance,
+    observed: glob.observed,
+    perPerson,
+  };
+};
+
+/* ---- v7: Book page ledger row ---- */
+
+export type BookCell = { amount: number; dir: 'in' | 'out'; date: string | null };
+export type BookRow = {
+  person: Person;
+  opening: { amount: number; dir: 'in' | 'out' } | null;
+  entries: BookCell[]; // up to 5, oldest→newest, opening excluded
+  balance: number;
+  lastDate: string; // most recent entry date, '' if none — for the "recent" sort
+};
+
+/* One ledger row: the opening txn (if any) plus the 5 most-recent NON-opening
+   entries, ordered oldest→newest so it reads like a running ledger. */
+export const bookRow = (person: Person, txns: Txn[], openingNotes: string[]): BookRow => {
+  const opening = findOpeningTxn(txns, person.id, openingNotes);
+  const rows = txns
+    .filter((x) => x.personId === person.id && (!opening || x.id !== opening.id))
+    .sort((a, b) => (a.date || '').localeCompare(b.date || '') || a.id - b.id);
+  const last5 = rows.slice(Math.max(0, rows.length - 5));
+  return {
+    person,
+    opening: opening ? { amount: opening.amount, dir: opening.dir } : null,
+    entries: last5.map((x) => ({ amount: x.amount, dir: x.dir, date: x.date })),
+    balance: bal(txns, person.id),
+    lastDate: rows.length ? rows[rows.length - 1].date || '' : '',
+  };
+};
+
 /* Display format is DD/MM/YYYY in both languages. Storage stays the
    normalized YYYY-MM-DD ISO string; lang is accepted for call-site
    compatibility but no longer affects the output. */
