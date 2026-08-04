@@ -22,6 +22,7 @@ import { OnboardingScreen } from './src/screens/OnboardingScreen';
 import { HomeScreen } from './src/screens/HomeScreen';
 import { BookScreen } from './src/screens/BookScreen';
 import { AboutScreen } from './src/screens/AboutScreen';
+import { BackupScreen } from './src/screens/BackupScreen';
 import { PeopleScreen } from './src/screens/PeopleScreen';
 import { PersonScreen } from './src/screens/PersonScreen';
 import { PayattsScreen } from './src/screens/PayattsScreen';
@@ -71,7 +72,7 @@ function Tabs() {
       <Tab.Screen
         name="HomeTab"
         component={HomeScreen}
-        options={{ title: t('tabDashboard'), tabBarIcon: ({ color }) => <DashboardIcon color={color} /> }}
+        options={{ title: t('tabHome'), tabBarIcon: ({ color }) => <DashboardIcon color={color} /> }}
       />
       <Tab.Screen
         name="BookTab"
@@ -149,6 +150,7 @@ function Root() {
         <Stack.Screen name="Person" component={PersonScreen} />
         <Stack.Screen name="Event" component={EventScreen} />
         <Stack.Screen name="About" component={AboutScreen} />
+        <Stack.Screen name="Backup" component={BackupScreen} />
       </Stack.Navigator>
     </NavigationContainer>
   );

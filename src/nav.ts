@@ -14,6 +14,7 @@ export type RootParams = {
   Person: { id: number };
   Event: { id: number };
   About: undefined;
+  Backup: undefined;
 };
 
 export type RootNav = NativeStackNavigationProp<RootParams>;
