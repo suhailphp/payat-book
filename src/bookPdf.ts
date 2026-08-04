@@ -1,6 +1,4 @@
 import { Platform } from 'react-native';
-import * as Print from 'expo-print';
-import * as Sharing from 'expo-sharing';
 import { dstr, fmt, today, type BookRow } from './lib';
 
 type T = (k: string) => string;
@@ -124,6 +122,10 @@ export async function exportBookPdf(
     return;
   }
 
+  /* loaded lazily so the print native module is only required when the user
+     actually exports — the app must not fail to start over an unused feature. */
+  const Print = require('expo-print');
+  const Sharing = require('expo-sharing');
   const { uri } = await Print.printToFileAsync({ html: bookHtml(rows, tot, owner, lang, t, tp, false) });
   if (await Sharing.isAvailableAsync()) {
     await Sharing.shareAsync(uri, { mimeType: 'application/pdf', dialogTitle: `payat-book-${today()}.pdf`, UTI: 'com.adobe.pdf' });
