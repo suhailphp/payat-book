@@ -197,10 +197,13 @@ export async function replaceAll(
   invitations: Invitation[] = []
 ): Promise<void> {
   const d = need();
-  await d.withExclusiveTransactionAsync(async (tx) => {
-    await tx.execAsync('DELETE FROM txns; DELETE FROM events; DELETE FROM people; DELETE FROM invitations;');
+  /* Manual BEGIN/COMMIT rather than withExclusiveTransactionAsync, which the web
+     (wa-sqlite) backend doesn't support — this path works on web and native. */
+  await d.execAsync('BEGIN');
+  try {
+    await d.execAsync('DELETE FROM txns; DELETE FROM events; DELETE FROM people; DELETE FROM invitations;');
     for (const p of people) {
-      await tx.runAsync(
+      await d.runAsync(
         'INSERT INTO people (id, name, phone, ref, created) VALUES (?, ?, ?, ?, ?)',
         p.id,
         p.name,
@@ -210,7 +213,7 @@ export async function replaceAll(
       );
     }
     for (const e of events) {
-      await tx.runAsync(
+      await d.runAsync(
         'INSERT INTO events (id, title, date, type, status) VALUES (?, ?, ?, ?, ?)',
         e.id,
         e.title,
@@ -220,7 +223,7 @@ export async function replaceAll(
       );
     }
     for (const x of txns) {
-      await tx.runAsync(
+      await d.runAsync(
         'INSERT INTO txns (id, personId, eventId, dir, amount, date, note) VALUES (?, ?, ?, ?, ?, ?, ?)',
         x.id,
         x.personId,
@@ -232,7 +235,7 @@ export async function replaceAll(
       );
     }
     for (const i of invitations) {
-      await tx.runAsync(
+      await d.runAsync(
         'INSERT INTO invitations (id, hostId, date, note, status, notifIds, paidTxnId) VALUES (?, ?, ?, ?, ?, ?, ?)',
         i.id,
         i.hostId,
@@ -243,5 +246,9 @@ export async function replaceAll(
         i.paidTxnId ?? null
       );
     }
-  });
+    await d.execAsync('COMMIT');
+  } catch (e) {
+    await d.execAsync('ROLLBACK').catch(() => {});
+    throw e;
+  }
 }
