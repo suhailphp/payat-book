@@ -44,8 +44,8 @@ installed binary (`expo-application`'s `nativeApplicationVersion` /
 string to edit in the source. The single source of truth is `app.json`:
 
 ```jsonc
-"version": "1.2.0",        // user-facing version → "v1.2.0"
-"android": { "versionCode": 3 }   // integer build number → "(3)"; MUST increase each release
+"version": "1.3.0",        // user-facing version → "v1.3.0"
+"android": { "versionCode": 4 }   // integer build number → "(4)"; MUST increase each release
 ```
 
 Before a release build:
