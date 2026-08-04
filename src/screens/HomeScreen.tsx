@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useRef, useState } from 'react';
 import { Pressable, ScrollView, StyleSheet, View } from 'react-native';
 import { useNavigation } from '@react-navigation/native';
 import { useData } from '../data';
@@ -6,9 +6,11 @@ import {
   bubbleItems,
   dayCountLabel,
   daysSince,
+  DEFAULT_ATTENDANCE,
   dstr,
   eventTotal,
   fmt,
+  hostForecast,
   monthBuckets,
   monthKey,
   monthTotals,
@@ -26,6 +28,8 @@ import { AddInvitationFlow } from '../components/AddInvitationFlow';
 import { PlusIcon } from '../components/Icons';
 import { MonthChart } from '../components/MonthChart';
 import { BalanceBubbles } from '../components/BalanceBubbles';
+import { ForecastCard } from '../components/ForecastCard';
+import { ForecastSheet } from '../sheets/ForecastSheet';
 import { CountUp, StaggerIn } from '../components/anim';
 import { SettingsSheet } from '../sheets/SettingsSheet';
 import { PersonPickerSheet } from '../sheets/PersonPickerSheet';
@@ -41,12 +45,26 @@ export function HomeScreen() {
   const { t, tp, lang, people, events, txns, invitations, meta, setMeta } = useData();
   const [settingsOpen, setSettingsOpen] = useState(false);
   const [invFlowOpen, setInvFlowOpen] = useState(false);
+  const [forecastOpen, setForecastOpen] = useState(false);
   /* ongoing-payat collection chain */
   const [collectFor, setCollectFor] = useState<number | null>(null);
   const [collectNewFor, setCollectNewFor] = useState<number | null>(null);
   const [entryCtx, setEntryCtx] = useState<EntryCtx | null>(null);
 
+  /* attendance rate for the host forecast, seeded from meta, persisted debounced */
+  const [attendance, setAttendance] = useState(() => {
+    const a = Number(meta.attendanceRate);
+    return a >= 0.1 && a <= 1 ? a : DEFAULT_ATTENDANCE;
+  });
+  const attTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const changeAttendance = (a: number) => {
+    setAttendance(a);
+    if (attTimer.current) clearTimeout(attTimer.current);
+    attTimer.current = setTimeout(() => setMeta('attendanceRate', String(a)), 500);
+  };
+
   const pos = totals(people, txns);
+  const forecast = hostForecast(people, txns, attendance);
   const hasData = txns.length > 0;
   const thisMonth = monthTotals(txns, monthKey(today()));
   const buckets = monthBuckets(txns, today(), 6);
@@ -195,6 +213,18 @@ export function HomeScreen() {
             <Btn label={t('showMore')} kind="ghost" onPress={() => nav.navigate('Tabs', { screen: 'PaymentsTab' })} />
           ) : null}
         </StaggerIn>
+
+        {/* 3a · "if I host now" forecast — above the bubbles, only when someone owes */}
+        {forecast.peopleCount > 0 ? (
+          <StaggerIn index={ai++}>
+            <ForecastCard
+              forecast={forecast}
+              attendance={attendance}
+              onAttendance={changeAttendance}
+              onPress={() => setForecastOpen(true)}
+            />
+          </StaggerIn>
+        ) : null}
 
         {/* 3b · balance bubbles — the centerpiece */}
         {bubbles.length ? (
@@ -388,6 +418,17 @@ export function HomeScreen() {
       />
       <EntrySheet ctx={entryCtx} onClose={() => setEntryCtx(null)} />
       <AddInvitationFlow open={invFlowOpen} onClose={() => setInvFlowOpen(false)} />
+      <ForecastSheet
+        visible={forecastOpen}
+        forecast={forecast}
+        attendance={attendance}
+        onAttendance={changeAttendance}
+        onClose={() => setForecastOpen(false)}
+        onPickPerson={(id) => {
+          setForecastOpen(false);
+          nav.navigate('Person', { id });
+        }}
+      />
     </View>
   );
 }
