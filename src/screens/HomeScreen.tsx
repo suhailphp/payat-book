@@ -216,7 +216,7 @@ export function HomeScreen() {
 
         {/* 3a · "if I host now" forecast — above the bubbles, only when someone owes */}
         {forecast.peopleCount > 0 ? (
-          <StaggerIn index={ai++}>
+          <StaggerIn index={ai++} style={{ marginTop: 26 }}>
             <ForecastCard
               forecast={forecast}
               attendance={attendance}

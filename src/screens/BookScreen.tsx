@@ -21,10 +21,9 @@ const ROW_H = 58;
 const HEAD_H = 38;
 const W_SNO = 40;
 const W_NAME = 136;
-const W_OPEN = 78;
 const W_CELL = 74;
 const W_BAL = 98;
-const MID_W = W_OPEN + W_CELL * 5;
+const MID_W = W_CELL * 5;
 
 type Sort = 'name' | 'balance' | 'recent';
 type Filter = 'all' | 'receive' | 'give' | 'settled';
@@ -212,17 +211,12 @@ export function BookScreen() {
           />
         </View>
 
-        {/* scrollable middle: Opening + 5 entries */}
+        {/* scrollable middle: the 5 most-recent entries (opening included, labelled) */}
         <View style={{ flex: 1 }}>
           <ScrollView horizontal showsHorizontalScrollIndicator scrollEventThrottle={16}>
             <View style={{ width: MID_W }}>
               <View style={[st.headRow, { flexDirection: 'row' }]}>
-                <View style={[st.cell, { width: W_OPEN, height: HEAD_H }]}>
-                  <Txt w={700} size={12} color={C.greenDeep} style={st.headLbl}>
-                    {t('bookOpening')}
-                  </Txt>
-                </View>
-                <View style={[st.cell, { width: W_CELL * 5, height: HEAD_H }]}>
+                <View style={[st.cell, { width: MID_W, height: HEAD_H }]}>
                   <Txt w={700} size={12} color={C.greenDeep} style={st.headLbl}>
                     {t('bookEntries')}
                   </Txt>
@@ -242,9 +236,8 @@ export function BookScreen() {
                 windowSize={11}
                 renderItem={({ item, index }) => (
                   <View style={{ flexDirection: 'row', height: ROW_H, width: MID_W, backgroundColor: altBg(index) }}>
-                    <MoneyCell width={W_OPEN} cell={item.opening} lang={lang} />
                     {Array.from({ length: 5 }).map((_, i) => (
-                      <MoneyCell key={i} width={W_CELL} cell={item.entries[i]} lang={lang} />
+                      <MoneyCell key={i} width={W_CELL} cell={item.entries[i]} lang={lang} openingLabel={t('bookOpening')} />
                     ))}
                   </View>
                 )}
@@ -305,8 +298,19 @@ function GoldRule({ width }: { width?: number }) {
 }
 
 /* one amount cell: coloured by direction (green = receivable/out, red = in),
-   the app's established convention; date in 10px under it. Blank when empty. */
-function MoneyCell({ width, cell, lang }: { width: number; cell: BookCell | null | undefined; lang: string }) {
+   the app's established convention; under it the date, or an "Opening" tag when
+   this entry is the opening balance. Blank when empty. */
+function MoneyCell({
+  width,
+  cell,
+  lang,
+  openingLabel,
+}: {
+  width: number;
+  cell: BookCell | null | undefined;
+  lang: string;
+  openingLabel: string;
+}) {
   return (
     <View style={[st.cell, { width, height: ROW_H }]}>
       {cell ? (
@@ -314,7 +318,11 @@ function MoneyCell({ width, cell, lang }: { width: number; cell: BookCell | null
           <Txt w={700} size={13} num color={cell.dir === 'out' ? C.green : C.red}>
             {fmt(cell.amount)}
           </Txt>
-          {cell.date ? (
+          {cell.isOpening ? (
+            <Txt w={600} size={9.5} color={C.gold}>
+              {openingLabel}
+            </Txt>
+          ) : cell.date ? (
             <Txt size={10} color={C.inkSoft} num>
               {dstr(cell.date, lang)}
             </Txt>

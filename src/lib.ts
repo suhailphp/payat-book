@@ -55,12 +55,22 @@ export const findOpeningTxn = (txns: Txn[], personId: number, openingNotes: stri
    positive balances count — people he owes are never subtracted. */
 
 export const DEFAULT_MULTIPLIER = 2.03; // measured mean from the real book
-export const FORECAST_LOW = 1.7; // measured spread (sd ≈ 0.35) → likely-low multiple
-export const FORECAST_HIGH = 2.4; // measured spread → likely-high multiple
+export const FORECAST_LOW = 0.85; // likely-low as a fraction of the expected value
+export const FORECAST_HIGH = 1.2; // likely-high as a fraction of the expected value
 export const DEFAULT_ATTENDANCE = 0.8;
 
 const clampMultiplier = (n: number): number => Math.max(1, Math.min(3, n));
 const mean = (a: number[]): number => a.reduce((s, x) => s + x, 0) / a.length;
+
+/* Blend a person's observed mean toward the global norm by confidence, so a
+   single unusual payment can't swing them permanently: one observation lands
+   ~1/3 personal, five mostly personal. No observations → the norm. Clamped [1,3]. */
+export const blendMultiplier = (ratios: number[], globalOrDefault: number): number => {
+  if (!ratios.length) return clampMultiplier(globalOrDefault);
+  const n = ratios.length;
+  const weight = n / (n + 2);
+  return clampMultiplier(weight * mean(ratios) + (1 - weight) * globalOrDefault);
+};
 
 /* Payback ratios observed for one person: walk their txns oldest→newest tracking
    the running balance; each time they gave (dir==='in') while they still owed him
@@ -118,34 +128,34 @@ export type Forecast = {
 };
 
 /* Collection forecast for hosting now. Each invited person's multiplier is their
-   own learned mean, else the global mean, else the measured default. Only
-   positive balances are summed; zero/negative balances never enter the total. */
+   own observed mean blended toward the global norm by confidence. Only positive
+   balances are summed; zero/negative balances never enter the total. The range
+   is a band around the SAME expected value, so low ≤ expected ≤ high always. */
 export const hostForecast = (people: Person[], txns: Txn[], attendance: number): Forecast => {
   const glob = globalMultiplier(txns);
   const perPerson: ForecastPerson[] = [];
   let sumExpected = 0;
-  let sumBalance = 0;
   for (const p of people) {
     const b = bal(txns, p.id);
     if (b <= 0) continue; // exclude what he owes and settled people, entirely
-    const learned = learnedMultiplier(txns, p.id);
-    const multiplier = learned ? learned.multiplier : glob.multiplier;
+    const ratios = paybackRatios(txns, p.id);
+    const multiplier = blendMultiplier(ratios, glob.multiplier);
     perPerson.push({
       personId: p.id,
       name: p.name,
       balance: b,
       multiplier,
       expected: Math.round(b * multiplier),
-      fromHistory: !!learned,
+      fromHistory: ratios.length > 0,
     });
     sumExpected += b * multiplier;
-    sumBalance += b;
   }
   perPerson.sort((a, b) => b.expected - a.expected);
+  const expected = sumExpected * attendance;
   return {
-    expected: Math.round(sumExpected * attendance),
-    low: Math.round(sumBalance * FORECAST_LOW * attendance),
-    high: Math.round(sumBalance * FORECAST_HIGH * attendance),
+    expected: Math.round(expected),
+    low: Math.round(expected * FORECAST_LOW),
+    high: Math.round(expected * FORECAST_HIGH),
     peopleCount: perPerson.length,
     attendance,
     observed: glob.observed,
@@ -155,27 +165,26 @@ export const hostForecast = (people: Person[], txns: Txn[], attendance: number):
 
 /* ---- v7: Book page ledger row ---- */
 
-export type BookCell = { amount: number; dir: 'in' | 'out'; date: string | null };
+export type BookCell = { amount: number; dir: 'in' | 'out'; date: string | null; isOpening: boolean };
 export type BookRow = {
   person: Person;
-  opening: { amount: number; dir: 'in' | 'out' } | null;
-  entries: BookCell[]; // up to 5, oldest→newest, opening excluded
+  entries: BookCell[]; // up to 5 most-recent, oldest→newest; the opening is just one of them
   balance: number;
   lastDate: string; // most recent entry date, '' if none — for the "recent" sort
 };
 
-/* One ledger row: the opening txn (if any) plus the 5 most-recent NON-opening
-   entries, ordered oldest→newest so it reads like a running ledger. */
+/* One ledger row: the 5 most-recent entries, oldest→newest, so it reads like a
+   running ledger. The opening balance is just another entry — marked isOpening
+   so its cell can be labelled — and only appears if it's within the recent five. */
 export const bookRow = (person: Person, txns: Txn[], openingNotes: string[]): BookRow => {
-  const opening = findOpeningTxn(txns, person.id, openingNotes);
+  const openingId = findOpeningTxn(txns, person.id, openingNotes)?.id;
   const rows = txns
-    .filter((x) => x.personId === person.id && (!opening || x.id !== opening.id))
+    .filter((x) => x.personId === person.id)
     .sort((a, b) => (a.date || '').localeCompare(b.date || '') || a.id - b.id);
   const last5 = rows.slice(Math.max(0, rows.length - 5));
   return {
     person,
-    opening: opening ? { amount: opening.amount, dir: opening.dir } : null,
-    entries: last5.map((x) => ({ amount: x.amount, dir: x.dir, date: x.date })),
+    entries: last5.map((x) => ({ amount: x.amount, dir: x.dir, date: x.date, isOpening: x.id === openingId })),
     balance: bal(txns, person.id),
     lastDate: rows.length ? rows[rows.length - 1].date || '' : '',
   };

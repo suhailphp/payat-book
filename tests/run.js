@@ -33,6 +33,7 @@ const {
   paybackRatios,
   learnedMultiplier,
   globalMultiplier,
+  blendMultiplier,
   hostForecast,
   bookRow,
   DEFAULT_MULTIPLIER,
@@ -760,20 +761,82 @@ ok('hostForecast: excludes zero and negative balances entirely', () => {
   assert.strictEqual(f.expected, Math.round(1000 * DEFAULT_MULTIPLIER));
 });
 
-ok('hostForecast: attendance scales the headline; low/high from the measured spread', () => {
+ok('hostForecast: attendance scales the headline; range is a band around expected', () => {
   const ppl = [P(1, 'A')];
   const t = [{ id: 1, personId: 1, eventId: null, dir: 'out', amount: 10000, date: '2026-01-01', note: '' }];
   const full = hostForecast(ppl, t, 1);
   const half = hostForecast(ppl, t, 0.5);
   assert.strictEqual(half.expected, Math.round(full.expected * 0.5)); // 100% vs 50% halves it
-  assert.strictEqual(full.low, Math.round(10000 * 1.7)); // sumBalance × 1.70 × attendance
-  assert.strictEqual(full.high, Math.round(10000 * 2.4));
-  assert.ok(full.low < full.expected && full.expected < full.high);
+  assert.strictEqual(full.low, Math.round(full.expected * 0.85)); // low = expected × 0.85
+  assert.strictEqual(full.high, Math.round(full.expected * 1.2)); // high = expected × 1.20
+});
+
+ok('blendMultiplier: shrinks toward the norm by confidence, clamped [1,3]', () => {
+  // no observations → the norm
+  assert.strictEqual(blendMultiplier([], 2.03), 2.03);
+  // one observation: weight 1/3 personal, 2/3 norm
+  assert.ok(Math.abs(blendMultiplier([2], 2.03) - ((1 / 3) * 2 + (2 / 3) * 2.03)) < 1e-9);
+  // five equal observations of 1.16 lean mostly personal (weight 5/7)
+  const five = [1.16, 1.16, 1.16, 1.16, 1.16];
+  assert.ok(Math.abs(blendMultiplier(five, 2.03) - ((5 / 7) * 1.16 + (2 / 7) * 2.03)) < 1e-9);
+  assert.ok(blendMultiplier(five, 2.03) < 2.0); // well below the norm, as intended
+  // final value clamped: huge personal ratio + high norm still ≤ 3
+  assert.strictEqual(blendMultiplier([10, 10, 10, 10, 10], 3), 3);
+});
+
+ok('hostForecast: a person with history is blended (one payment does not take over)', () => {
+  // owes 2000 now, and paid back once at 3× earlier; global norm ≈ 2.03
+  const ppl = [P(1, 'A')];
+  const t = [
+    { id: 1, personId: 1, eventId: null, dir: 'out', amount: 1000, date: '2026-01-01', note: '' }, // owes 1000
+    { id: 2, personId: 1, eventId: null, dir: 'in', amount: 3000, date: '2026-02-01', note: '' }, // ratio 3, running −2000
+    { id: 3, personId: 1, eventId: null, dir: 'out', amount: 4000, date: '2026-03-01', note: '' }, // owes 2000
+  ];
+  const glob = globalMultiplier(t).multiplier; // clamp(mean([3])) = 3 (only observation)
+  const m = blendMultiplier([3], glob);
+  const f = hostForecast(ppl, t, 1);
+  assert.strictEqual(f.perPerson[0].fromHistory, true);
+  assert.strictEqual(f.perPerson[0].multiplier, m);
+  assert.strictEqual(f.perPerson[0].expected, Math.round(2000 * m));
+});
+
+ok('hostForecast: low <= expected <= high across datasets (incl. low learned multipliers)', () => {
+  const mk = (spec) => {
+    const ppl = [];
+    const t = [];
+    let id = 1;
+    spec.forEach((s, k) => {
+      ppl.push(P(k + 1, 'P' + (k + 1)));
+      s.forEach((tx) => t.push({ id: id++, personId: k + 1, eventId: null, dir: tx[0], amount: tx[1], date: tx[2], note: '' }));
+    });
+    return { ppl, t };
+  };
+  const datasets = [
+    // owe-only (opening balances): multipliers default 2.03
+    mk([[['out', 5000, '2026-01-01']], [['out', 3000, '2026-01-01']]]),
+    // low learned multipliers (~1.1) that used to push expected below the old 1.70× floor
+    mk([
+      [['out', 1000, '2026-01-01'], ['in', 1100, '2026-02-01'], ['out', 2000, '2026-03-01']],
+      [['out', 2000, '2026-01-01'], ['in', 2200, '2026-02-01'], ['out', 3000, '2026-03-01']],
+    ]),
+    // mixed: some settled/negative that must not enter the sum
+    mk([
+      [['out', 4000, '2026-01-01']],
+      [['in', 500, '2026-01-01'], ['out', 500, '2026-01-02']],
+      [['in', 900, '2026-01-01']],
+    ]),
+  ];
+  for (const { ppl, t } of datasets) {
+    for (const att of [1, 0.8, 0.3]) {
+      const f = hostForecast(ppl, t, att);
+      assert.ok(f.low <= f.expected && f.expected <= f.high, `invariant broken: ${f.low} ${f.expected} ${f.high}`);
+    }
+  }
 });
 
 /* ---------- v7: book row assembly ---------- */
 
-ok('bookRow: opening excluded from the 5 cells, oldest→newest, pads under 5', () => {
+ok('bookRow: opening is just a labelled entry, oldest→newest, pads under 5', () => {
   const notes = [STR.en.obNote, STR.ml.obNote];
   const person = P(1, 'Riyas');
   const t = [
@@ -782,23 +845,23 @@ ok('bookRow: opening excluded from the 5 cells, oldest→newest, pads under 5', 
     { id: 3, personId: 1, eventId: null, dir: 'out', amount: 2000, date: '2026-03-01', note: '' },
   ];
   const r = bookRow(person, t, notes);
-  assert.deepStrictEqual(r.opening, { amount: 5000, dir: 'out' });
-  assert.strictEqual(r.entries.length, 2); // opening excluded, 2 real entries
-  assert.deepStrictEqual(r.entries.map((e) => e.amount), [1000, 2000]); // oldest→newest
+  assert.strictEqual(r.entries.length, 3); // opening included as an entry
+  assert.deepStrictEqual(r.entries.map((e) => e.amount), [5000, 1000, 2000]); // oldest→newest
+  assert.deepStrictEqual(r.entries.map((e) => e.isOpening), [true, false, false]);
   assert.strictEqual(r.balance, 5000 - 1000 + 2000); // 6000
   assert.strictEqual(r.lastDate, '2026-03-01');
 });
 
-ok('bookRow: keeps only the most recent 5 entries, still oldest→newest', () => {
+ok('bookRow: only the most recent 5; an older opening drops out of view', () => {
   const person = P(2, 'Fathima');
-  const t = [];
-  for (let i = 1; i <= 7; i++)
-    t.push({ id: i, personId: 2, eventId: null, dir: 'out', amount: i * 100, date: `2026-01-0${i}`, note: '' });
+  const t = [{ id: 1, personId: 2, eventId: null, dir: 'out', amount: 999, date: '2026-01-01', note: STR.en.obNote }]; // opening, oldest
+  for (let i = 2; i <= 7; i++)
+    t.push({ id: i, personId: 2, eventId: null, dir: 'out', amount: (i - 1) * 100, date: `2026-02-0${i - 1}`, note: '' });
   const r = bookRow(person, t, [STR.en.obNote, STR.ml.obNote]);
-  assert.strictEqual(r.opening, null);
   assert.strictEqual(r.entries.length, 5);
-  // drops the two oldest (100, 200), keeps 300..700 oldest→newest
-  assert.deepStrictEqual(r.entries.map((e) => e.amount), [300, 400, 500, 600, 700]);
+  // 7 entries oldest→newest: 999(opening),100,200,300,400,500,600 → recent 5 = 200..600
+  assert.deepStrictEqual(r.entries.map((e) => e.amount), [200, 300, 400, 500, 600]);
+  assert.ok(r.entries.every((e) => e.isOpening === false)); // opening fell outside the recent five
 });
 
 console.log(`\n${n} checks passed`);
