@@ -32,6 +32,7 @@ export function PersonFormSheet({
   const { t, txns, addPerson, editPerson, removePerson, addTxn, editTxn, removeTxn } = useData();
   const [name, setName] = useState('');
   const [phone, setPhone] = useState('');
+  const [ref, setRef] = useState('');
   /* opening balance — offered on both create and edit */
   const [obAmount, setObAmount] = useState('');
   const [obDir, setObDir] = useState<'receive' | 'give'>('receive');
@@ -40,6 +41,7 @@ export function PersonFormSheet({
     if (visible) {
       setName(person?.name ?? '');
       setPhone(person?.phone ?? '');
+      setRef(person?.ref ?? '');
       /* prefill from the person's existing opening txn, if any */
       const ot = person ? findOpeningTxn(txns, person.id, OB_NOTES) : undefined;
       setObAmount(ot ? String(ot.amount) : '');
@@ -57,7 +59,7 @@ export function PersonFormSheet({
     const ob = parseInt((obAmount || '').replace(/[^\d]/g, ''), 10);
     const obTxnDir = obDir === 'receive' ? 'out' : 'in';
     if (person) {
-      await editPerson(person.id, n, phone.trim());
+      await editPerson(person.id, n, phone.trim(), ref.trim());
       /* update the existing opening txn, create one, or clear it — never touch
          the person's other entries. */
       const ot = findOpeningTxn(txns, person.id, OB_NOTES);
@@ -74,7 +76,7 @@ export function PersonFormSheet({
       toast(t('tSaved'));
       onSaved?.(person.id, false);
     } else {
-      const id = await addPerson(n, phone.trim());
+      const id = await addPerson(n, phone.trim(), ref.trim());
       /* record the opening balance as a dated entry so balance stays = Σ txns. */
       if (ob) {
         await addTxn({ personId: id, eventId: null, dir: obTxnDir, amount: ob, date: today(), note: t('obNote') });
@@ -114,6 +116,13 @@ export function PersonFormSheet({
         onChangeText={setPhone}
         keyboardType="phone-pad"
         placeholder="+91 98765 43210"
+      />
+      <Field
+        label={t('reference')}
+        value={ref}
+        onChangeText={setRef}
+        autoCorrect={false}
+        placeholder={t('refPlaceholder')}
       />
       <Field
         label={t('openingBalance')}

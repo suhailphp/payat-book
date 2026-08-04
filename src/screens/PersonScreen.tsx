@@ -72,6 +72,11 @@ export function PersonScreen() {
                   {p.phone}
                 </Txt>
               ) : null}
+              {p.ref ? (
+                <Txt size={13} color={C.inkSoft} style={{ textAlign: 'center' }}>
+                  {p.ref}
+                </Txt>
+              ) : null}
               <Txt size={14.5} color={C.inkSoft} style={{ textAlign: 'center' }}>
                 {state}
               </Txt>

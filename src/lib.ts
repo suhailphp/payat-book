@@ -1,7 +1,7 @@
 /* Pure helpers ported from the PWA (docs/design/index.html) — kept free of
    native imports so they can be unit-tested in plain node. */
 
-export type Person = { id: number; name: string; phone: string; created: string | null };
+export type Person = { id: number; name: string; phone: string; ref: string; created: string | null };
 export type PayatEvent = { id: number; title: string; date: string | null; type: string; status: string };
 export type Txn = {
   id: number;
@@ -358,8 +358,10 @@ export type Backup = {
   invitations: Invitation[];
 };
 
-/* v3 payload: v2 shape + invitations appended last, so the PWA's importer
-   (which only reads people/events/txns) still accepts these files. */
+/* v4 payload: v3 shape + a `ref` on each person; the top-level key order is
+   unchanged (v2 shape + invitations appended last) so the PWA's importer
+   (which only reads people/events/txns) still accepts these files, and v2/v3
+   files still restore here (missing ref → ''). */
 export const serializeBackup = (
   people: Person[],
   events: PayatEvent[],
@@ -367,7 +369,7 @@ export const serializeBackup = (
   invitations: Invitation[] = []
 ): string =>
   JSON.stringify(
-    { app: 'payat-book', version: 3, exported: new Date().toISOString(), people, events, txns, invitations },
+    { app: 'payat-book', version: 4, exported: new Date().toISOString(), people, events, txns, invitations },
     null,
     1
   );
@@ -384,6 +386,8 @@ export const parseBackup = (raw: string): Backup | null => {
         id: Number(p.id),
         name: String(p.name ?? ''),
         phone: String(p.phone ?? ''),
+        /* v2/v3 files have no ref → '' */
+        ref: String(p.ref ?? ''),
         created: p.created ?? null,
       })),
       events: ((d.events ?? []) as any[]).map((e) => ({

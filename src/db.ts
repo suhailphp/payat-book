@@ -12,6 +12,7 @@ export async function openDB(): Promise<SQLite.SQLiteDatabase> {
       id INTEGER PRIMARY KEY AUTOINCREMENT,
       name TEXT NOT NULL,
       phone TEXT DEFAULT '',
+      ref TEXT DEFAULT '',
       created TEXT
     );
     CREATE TABLE IF NOT EXISTS events (
@@ -41,6 +42,13 @@ export async function openDB(): Promise<SQLite.SQLiteDatabase> {
       paidTxnId INTEGER
     );
   `);
+  /* migration: add people.ref for installs created before this column existed.
+     Guarded so it doesn't fail (duplicate column) on installs that already
+     have it via the CREATE above. */
+  const cols = await db.getAllAsync<{ name: string }>('PRAGMA table_info(people)');
+  if (!cols.some((c) => c.name === 'ref')) {
+    await db.execAsync("ALTER TABLE people ADD COLUMN ref TEXT DEFAULT ''");
+  }
   return db;
 }
 
@@ -67,13 +75,19 @@ export async function loadAll(): Promise<{
   return { people, events, txns, invitations, meta };
 }
 
-export async function insertPerson(name: string, phone: string, created: string): Promise<number> {
-  const r = await need().runAsync('INSERT INTO people (name, phone, created) VALUES (?, ?, ?)', name, phone, created);
+export async function insertPerson(name: string, phone: string, ref: string, created: string): Promise<number> {
+  const r = await need().runAsync(
+    'INSERT INTO people (name, phone, ref, created) VALUES (?, ?, ?, ?)',
+    name,
+    phone,
+    ref,
+    created
+  );
   return r.lastInsertRowId;
 }
 
-export async function updatePerson(id: number, name: string, phone: string): Promise<void> {
-  await need().runAsync('UPDATE people SET name = ?, phone = ? WHERE id = ?', name, phone, id);
+export async function updatePerson(id: number, name: string, phone: string, ref: string): Promise<void> {
+  await need().runAsync('UPDATE people SET name = ?, phone = ?, ref = ? WHERE id = ?', name, phone, ref, id);
 }
 
 export async function deletePerson(id: number): Promise<void> {
@@ -187,10 +201,11 @@ export async function replaceAll(
     await tx.execAsync('DELETE FROM txns; DELETE FROM events; DELETE FROM people; DELETE FROM invitations;');
     for (const p of people) {
       await tx.runAsync(
-        'INSERT INTO people (id, name, phone, created) VALUES (?, ?, ?, ?)',
+        'INSERT INTO people (id, name, phone, ref, created) VALUES (?, ?, ?, ?, ?)',
         p.id,
         p.name,
         p.phone ?? '',
+        p.ref ?? '',
         p.created ?? null
       );
     }

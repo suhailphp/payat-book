@@ -25,7 +25,7 @@ export function PeopleScreen() {
       <SearchableList
         data={list}
         keyOf={(p) => String(p.id)}
-        searchKeys={['name']}
+        searchKeys={['name', 'ref']}
         placeholder={t('searchPeople')}
         contentContainerStyle={{ padding: 16, paddingTop: 22, paddingBottom: 96 }}
         empty={<Empty title={t('emptyPeopleT')} desc={t('emptyPeopleD')} />}
@@ -37,7 +37,7 @@ export function PeopleScreen() {
                 {p.name}
               </Txt>
               <Txt size={13.5} color={C.inkSoft} num numberOfLines={1}>
-                {p.phone || t('noNumber')}
+                {[p.phone || t('noNumber'), p.ref].filter(Boolean).join(' · ')}
               </Txt>
             </View>
             <BalChip b={bal(txns, p.id)} settledLabel={t('settled')} />

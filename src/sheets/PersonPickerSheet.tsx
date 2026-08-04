@@ -39,7 +39,7 @@ export function PersonPickerSheet({
       <SearchableList
         data={list}
         keyOf={(p) => String(p.id)}
-        searchKeys={['name']}
+        searchKeys={['name', 'ref']}
         placeholder={t('searchName')}
         listStyle={{ maxHeight: height * 0.5 }}
         empty={<Empty desc={t('noMatch')} />}

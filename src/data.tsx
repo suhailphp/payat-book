@@ -16,8 +16,8 @@ type Data = {
   t: (k: string) => string;
   tp: (k: string, vars: Record<string, string | number>) => string;
   setLang: (l: Lang) => Promise<void>;
-  addPerson: (name: string, phone: string) => Promise<number>;
-  editPerson: (id: number, name: string, phone: string) => Promise<void>;
+  addPerson: (name: string, phone: string, ref: string) => Promise<number>;
+  editPerson: (id: number, name: string, phone: string, ref: string) => Promise<void>;
   removePerson: (id: number) => Promise<void>;
   addEvent: (title: string, date: string) => Promise<number>;
   setEventStatus: (id: number, status: 'open' | 'closed') => Promise<void>;
@@ -78,13 +78,13 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
         setLangState(l);
         setMetaState((m) => ({ ...m, lang: l }));
       },
-      addPerson: async (name, phone) => {
-        const id = await db.insertPerson(name, phone, today());
+      addPerson: async (name, phone, ref) => {
+        const id = await db.insertPerson(name, phone, ref, today());
         await refresh();
         return id;
       },
-      editPerson: async (id, name, phone) => {
-        await db.updatePerson(id, name, phone);
+      editPerson: async (id, name, phone, ref) => {
+        await db.updatePerson(id, name, phone, ref);
         await refresh();
       },
       removePerson: async (id) => {

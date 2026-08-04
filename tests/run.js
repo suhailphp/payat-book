@@ -43,7 +43,7 @@ const ok = (name, fn) => {
 
 /* ---------- core ledger ---------- */
 
-const riyas = { id: 1, name: 'Riyas KP', phone: '+91 98765 43210', created: '2026-07-01' };
+const riyas = { id: 1, name: 'Riyas KP', phone: '+91 98765 43210', ref: 'Page A · Row 17', created: '2026-07-01' };
 let txns = [{ id: 1, personId: 1, eventId: null, dir: 'in', amount: 1000, date: '2026-07-10', note: '' }];
 ok('in 1000 gives balance -1000', () => assert.strictEqual(bal(txns, 1), -1000));
 ok('chips: I owe → out suggests 1000', () => assert.strictEqual(owedFor(bal(txns, 1), 'out'), 1000));
@@ -165,8 +165,9 @@ ok('backup round-trip preserves data', () => {
   const parsed = parseBackup(serializeBackup(people, events, txns));
   assert.ok(parsed);
   assert.strictEqual(parsed.app, 'payat-book');
-  assert.strictEqual(parsed.version, 3);
-  assert.deepStrictEqual(parsed.people, people);
+  assert.strictEqual(parsed.version, 4);
+  assert.deepStrictEqual(parsed.people, people); // ref round-trips
+  assert.strictEqual(parsed.people[0].ref, 'Page A · Row 17');
   assert.deepStrictEqual(parsed.events, events);
   assert.deepStrictEqual(parsed.txns, txns);
   assert.deepStrictEqual(parsed.invitations, []);
@@ -382,15 +383,41 @@ ok('filterPayments: matches person name and note, case-insensitive', () => {
 
 /* ---------- v4: backup payload format ---------- */
 
-ok('backup payload keeps v2 key order with invitations appended (v3)', () => {
+ok('backup payload keeps v2 key order with invitations appended (v4)', () => {
   const raw = serializeBackup(people, events, txns);
   const d = JSON.parse(raw);
   assert.deepStrictEqual(Object.keys(d), ['app', 'version', 'exported', 'people', 'events', 'txns', 'invitations']);
   assert.strictEqual(d.app, 'payat-book');
-  assert.strictEqual(d.version, 3);
+  assert.strictEqual(d.version, 4);
+  assert.strictEqual(d.people[0].ref, 'Page A · Row 17'); // ref rides along inside each person
   assert.ok(!Number.isNaN(Date.parse(d.exported)), 'exported must be an ISO timestamp');
   // the PWA-side validation (app check + people array) still accepts it
   assert.ok(d.app === 'payat-book' && Array.isArray(d.people));
+});
+
+ok('person ref: v3 file (no ref) imports as empty; search matches on ref', () => {
+  // a v3 file whose people predate the ref column
+  const v3 = JSON.stringify({
+    app: 'payat-book',
+    version: 3,
+    exported: 'x',
+    people: [{ id: 1, name: 'Riyas KP', phone: '', created: null }],
+    events: [],
+    txns: [],
+    invitations: [],
+  });
+  const parsed = parseBackup(v3);
+  assert.ok(parsed);
+  assert.strictEqual(parsed.people[0].ref, ''); // missing ref → ''
+  // ref is searchable (substring, case-insensitive)
+  const ppl = [
+    { id: 1, name: 'Ravi', phone: '', ref: 'Page A · Row 17', created: null },
+    { id: 2, name: 'Suma', phone: '', ref: 'Page B · Row 3', created: null },
+  ];
+  assert.deepStrictEqual(searchFilter(ppl, 'page a', ['name', 'ref']).map((p) => p.id), [1]);
+  assert.deepStrictEqual(searchFilter(ppl, 'row 17', ['name', 'ref']).map((p) => p.id), [1]);
+  assert.deepStrictEqual(searchFilter(ppl, 'page b', ['name', 'ref']).map((p) => p.id), [2]);
+  assert.deepStrictEqual(searchFilter(ppl, 'ravi', ['name', 'ref']).map((p) => p.id), [1]); // name still works
 });
 
 /* ---------- v4: search + pagination ---------- */
