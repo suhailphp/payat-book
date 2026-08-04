@@ -45,7 +45,8 @@
           "color": "#C9A227"
         }
       ],
-      "./plugins/withBuildToolsFix"
+      "./plugins/withBuildToolsFix",
+      "@react-native-google-signin/google-signin"
     ]
   }
 }

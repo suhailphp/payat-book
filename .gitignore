@@ -44,3 +44,8 @@ yarn-error.*
 # release signing — never commit
 *.keystore
 android/gradle.properties
+
+# Google OAuth client files — never commit (kept outside the repo)
+client_secret*.json
+*.credentials.json
+google-services.json

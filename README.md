@@ -92,14 +92,39 @@ in `app.json`) injects a `subprojects` block into `android/build.gradle`
 that forces every Android module onto the project's build tools (36.0.0),
 so this survives `expo prebuild`. No manual step needed.
 
-**Release signing** expects `android/app/payat-release.keystore` plus
-`PAYAT_RELEASE_*` entries in `android/gradle.properties` (both gitignored —
-kept only on the build machine; back up the keystore and its password
-outside the repo). This part is *not* yet automated by a config plugin, so
-if `android/` is ever regenerated with `prebuild --clean`, re-add the
-`signingConfigs.release` block in `android/app/build.gradle` and the
-gradle.properties entries (the `withBuildToolsFix` plugin re-applies
-automatically; only signing needs re-adding).
+**Release signing.** The release keystore and its credentials live
+**outside `android/`** so they survive a prebuild:
+
+- Keystore: `~/Documents/PayatBook-keys/payat-release.keystore` (alias `payat`).
+- Credentials: `PAYAT_RELEASE_*` in **`~/.gradle/gradle.properties`** (user-level,
+  not in the repo) — `PAYAT_RELEASE_STORE_FILE` is the absolute path above,
+  plus `PAYAT_RELEASE_STORE_PASSWORD` / `PAYAT_RELEASE_KEY_ALIAS` /
+  `PAYAT_RELEASE_KEY_PASSWORD`.
+
+Both are the app's signing identity — **back them up in a password manager.**
+There is no other copy; if lost, the key cannot be recovered and existing
+installs can no longer be updated in place.
+
+> ⚠️ **`expo prebuild` wipes `android/` entirely** — it deletes and regenerates
+> the whole folder, including anything gitignored inside it (a previous
+> in-tree keystore, `gradle.properties`, `local.properties`). That is why the
+> keystore now lives outside `android/`. **Before any prebuild, make sure your
+> signing files are backed up outside the repo.** After a prebuild you must
+> re-add, in the regenerated `android/app/build.gradle`:
+>
+> - the `signingConfigs.release { … }` block referencing the `PAYAT_RELEASE_*`
+>   properties, and `signingConfig signingConfigs.release` under
+>   `buildTypes.release`;
+> - `android/local.properties` with `sdk.dir=<your Android SDK path>`.
+>
+> (`withBuildToolsFix` re-applies automatically as a config plugin; only
+> signing and the SDK path need re-adding by hand.)
+
+> ⚠️ **New signing key ≠ old installs.** The release key was regenerated on
+> 2026-08-04 (new SHA-1), so a new build **cannot install over an older
+> differently-signed build** — Android rejects it with a signature mismatch.
+> On each affected phone/emulator: **Save a backup file first, uninstall the
+> old app, install the new APK, then Restore from the backup JSON.**
 
 ## Balance model
 
@@ -119,6 +144,36 @@ Settings (gear) → **Save backup file** shares a JSON file:
 ```
 
 **Restore from backup** replaces all data with the file's contents (after confirmation). The format is identical to the PWA's, so backups move freely between the web version and this app in both directions.
+
+### Optional Google Drive backup
+
+Entirely optional — the app is fully usable offline with no account. When the
+user connects Google Drive (Settings → **Connect Google Drive**), the app keeps
+automatic backups in a visible **Payat Book** folder in their My Drive, so a
+lost phone doesn't mean a lost book.
+
+- **Scope:** `drive.file` only — the app can see and touch just the files it
+  created, never the rest of the user's Drive. Non-sensitive; no Google
+  verification needed. Do not broaden it.
+- **Auth:** `@react-native-google-signin/google-signin` with the native Play
+  Services account picker. Tokens are held and refreshed by Play Services — the
+  app stores **no** refresh token, so a shared backup JSON can never leak Drive
+  access. The uploaded file is byte-identical to the local export.
+- **Automatic:** on app open, if connected and the last Drive backup is older
+  than 24h and the data changed, one quiet background upload. Never blocks the
+  UI; failures are silent apart from a staleness line in Settings.
+- **Retention:** the newest 10 backups are kept; older ones are pruned.
+- **Config:** the Web OAuth client ID lives in `src/config/google.ts` (not a
+  secret). The Android OAuth clients (release + debug SHA-1s) only need to
+  exist in the Cloud project — they're matched by the app's signing cert and
+  are never referenced in code. OAuth client JSON files are gitignored and kept
+  outside the repo.
+
+> ⚠️ **Publish the OAuth consent screen to "In production."** While it sits in
+> "Testing", Google **expires the refresh grant after 7 days** and the auto-backup
+> silently stops. Because only the non-sensitive `drive.file` scope is used,
+> moving to Production needs **no** verification — do it before handing over the
+> phone (Google Cloud Console → OAuth consent screen → **Publish App**).
 
 ## Web (iPhone) version
 

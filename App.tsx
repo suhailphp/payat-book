@@ -13,6 +13,7 @@ import {
   BalooChettan2_700Bold,
 } from '@expo-google-fonts/baloo-chettan-2';
 import { DataProvider, useData } from './src/data';
+import { DriveAutoBackup } from './src/DriveAutoBackup';
 import { C, FONT } from './src/theme';
 import { HomeIcon, DashboardIcon, PeopleIcon, EnvIcon, PayHandsIcon } from './src/components/Icons';
 import { ToastHost } from './src/components/Toast';
@@ -159,6 +160,7 @@ export default function App() {
       <DataProvider>
         <StatusBar style="dark" />
         <Root />
+        <DriveAutoBackup />
         <ConfirmHost />
         <ToastHost />
       </DataProvider>

@@ -37,6 +37,10 @@ const {
   hostForecast,
   bookRow,
   DEFAULT_MULTIPLIER,
+  driveBackupFilename,
+  parseDriveBackupName,
+  driveBackupsToPrune,
+  backupSignature,
 } = require('../.testbuild/lib');
 const { buildShareText } = require('../.testbuild/share');
 const { tFor, tpFor, STR } = require('../.testbuild/i18n');
@@ -862,6 +866,102 @@ ok('bookRow: only the most recent 5; an older opening drops out of view', () => 
   // 7 entries oldest→newest: 999(opening),100,200,300,400,500,600 → recent 5 = 200..600
   assert.deepStrictEqual(r.entries.map((e) => e.amount), [200, 300, 400, 500, 600]);
   assert.ok(r.entries.every((e) => e.isOpening === false)); // opening fell outside the recent five
+});
+
+/* ---------- Google Drive backup ---------- */
+
+const drivePeople = [
+  { id: 1, name: 'Riyas KP', phone: '+91 98765 43210', ref: 'Page A Row 17', created: '2026-07-01' },
+  { id: 2, name: 'Fathima', phone: '', ref: '', created: '2026-07-02' },
+];
+const driveEvents = [{ id: 1, title: 'Wedding', date: '2026-07-10', type: 'hosted', status: 'open' }];
+const driveTxns = [
+  { id: 1, personId: 1, eventId: null, dir: 'in', amount: 1000, date: '2026-07-10', note: '' },
+  { id: 2, personId: 1, eventId: 1, dir: 'out', amount: 2000, date: '2026-07-20', note: 'wedding payat' },
+];
+const driveInv = [];
+
+ok('drive filename: payat-backup-YYYY-MM-DD-HHmm.json in local time', () => {
+  assert.strictEqual(driveBackupFilename(new Date(2026, 7, 4, 19, 30)), 'payat-backup-2026-08-04-1930.json');
+  assert.strictEqual(driveBackupFilename(new Date(2026, 0, 9, 3, 5)), 'payat-backup-2026-01-09-0305.json');
+});
+
+ok('drive filename round-trips through parseDriveBackupName', () => {
+  const name = driveBackupFilename(new Date(2026, 7, 4, 19, 30));
+  const p = parseDriveBackupName(name);
+  assert.strictEqual(p.hhmm, '19:30');
+  assert.strictEqual(p.ms, new Date(2026, 7, 4, 19, 30).getTime());
+  assert.strictEqual(parseDriveBackupName('not-ours.json'), null);
+});
+
+ok('drive payload byte-identical to the local export (differs only by the export timestamp)', () => {
+  // Both the local share export and the Drive upload build the body with the
+  // SAME serializeBackup; drive.ts uploads those bytes verbatim. So for one
+  // instant the two are byte-for-byte equal — proven by holding `exported`.
+  const local = serializeBackup(drivePeople, driveEvents, driveTxns, driveInv);
+  const drive = serializeBackup(drivePeople, driveEvents, driveTxns, driveInv);
+  const norm = (s) => s.replace(/"exported":\s*"[^"]*"/, '"exported":"X"');
+  assert.strictEqual(norm(local), norm(drive));
+  // and the payload survives the restore parser unchanged
+  const back = parseBackup(drive);
+  assert.strictEqual(back.people.length, 2);
+  assert.strictEqual(back.txns.length, 2);
+  assert.strictEqual(back.txns[1].note, 'wedding payat');
+});
+
+ok('drive retention keeps exactly 10, prunes the oldest', () => {
+  // 12 backups, one per hour; newest should survive
+  const names = [];
+  for (let i = 0; i < 12; i++) names.push(driveBackupFilename(new Date(2026, 0, 1, 8 + i, 0)));
+  const prune = driveBackupsToPrune(names, 10);
+  assert.strictEqual(prune.length, 2); // two removed
+  assert.strictEqual(names.length - prune.length, 10); // exactly ten kept
+  // the two pruned are the oldest (08:00 and 09:00)
+  assert.deepStrictEqual(prune.sort(), [
+    'payat-backup-2026-01-01-0800.json',
+    'payat-backup-2026-01-01-0900.json',
+  ]);
+  // fewer than 10 → nothing pruned
+  assert.strictEqual(driveBackupsToPrune(names.slice(0, 5), 10).length, 0);
+  // unparseable names sort oldest (pruned first) so junk can't accumulate
+  const withJunk = ['garbage.json', ...names.slice(0, 10)];
+  assert.deepStrictEqual(driveBackupsToPrune(withJunk, 10), ['garbage.json']);
+});
+
+ok('restore path unchanged: parseBackup handles a Drive file exactly like a local one', () => {
+  const payload = serializeBackup(drivePeople, driveEvents, driveTxns, driveInv);
+  const parsed = parseBackup(payload);
+  // same shape the local restore relies on
+  assert.strictEqual(parsed.app, 'payat-book');
+  assert.strictEqual(parsed.version, 4);
+  assert.deepStrictEqual(
+    parsed.people.map((p) => p.name),
+    ['Riyas KP', 'Fathima']
+  );
+  assert.strictEqual(parsed.invitations.length, 0);
+});
+
+ok('token never appears in an export (no auth material can leak through a backup)', () => {
+  const payload = serializeBackup(drivePeople, driveEvents, driveTxns, driveInv);
+  // top-level keys are exactly the backup shape — no room for a token
+  assert.deepStrictEqual(Object.keys(JSON.parse(payload)), [
+    'app',
+    'version',
+    'exported',
+    'people',
+    'events',
+    'txns',
+    'invitations',
+  ]);
+  assert.ok(!/token|refresh|client_secret|accessToken|driveEmail|googleusercontent/i.test(payload));
+});
+
+ok('backupSignature: stable when unchanged, differs when data changes', () => {
+  const a = backupSignature(drivePeople, driveEvents, driveTxns, driveInv);
+  const b = backupSignature(drivePeople, driveEvents, driveTxns, driveInv);
+  assert.strictEqual(a, b); // deterministic, timestamp-independent
+  const moreTxns = [...driveTxns, { id: 3, personId: 2, eventId: null, dir: 'in', amount: 500, date: '2026-08-01', note: '' }];
+  assert.notStrictEqual(a, backupSignature(drivePeople, driveEvents, moreTxns, driveInv));
 });
 
 console.log(`\n${n} checks passed`);

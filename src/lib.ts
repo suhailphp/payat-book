@@ -562,3 +562,49 @@ export const parseBackup = (raw: string): Backup | null => {
     return null;
   }
 };
+
+/* ---------- Google Drive backup helpers (pure; the native I/O lives in
+   drive.ts). The uploaded file body is exactly serializeBackup(...) — these
+   helpers only name, date and prune those files, never touch the payload. ---- */
+
+/* Drive backup filename: payat-backup-YYYY-MM-DD-HHmm.json in local time. The
+   local share export uses payat-backup-YYYY-MM-DD.json; the extra HHmm lets
+   several backups coexist in the folder and sort chronologically by name. */
+export const driveBackupFilename = (d: Date = new Date()): string =>
+  `payat-backup-${d.getFullYear()}-${pad2(d.getMonth() + 1)}-${pad2(d.getDate())}-${pad2(
+    d.getHours()
+  )}${pad2(d.getMinutes())}.json`;
+
+/* Parse the timestamp back out of a Drive backup filename → local epoch millis
+   plus an HH:mm string, or null if the name isn't one of ours. */
+export const parseDriveBackupName = (name: string): { ms: number; hhmm: string } | null => {
+  const m = /^payat-backup-(\d{4})-(\d{2})-(\d{2})-(\d{2})(\d{2})\.json$/.exec(name);
+  if (!m) return null;
+  const [, y, mo, da, hh, mi] = m;
+  const dt = new Date(Number(y), Number(mo) - 1, Number(da), Number(hh), Number(mi));
+  return { ms: dt.getTime(), hhmm: `${hh}:${mi}` };
+};
+
+/* Retention: given the backup filenames in the folder, return the ones to
+   delete so only the newest `keep` remain. Sorted newest-first by the
+   timestamp in the name; names that don't parse sort oldest (pruned first) so
+   stray files can't accumulate. */
+export const driveBackupsToPrune = (names: string[], keep = 10): string[] => {
+  const key = (n: string) => parseDriveBackupName(n)?.ms ?? -1;
+  return [...names].sort((a, b) => key(b) - key(a)).slice(Math.max(0, keep));
+};
+
+/* A stable fingerprint of the ledger, ignoring the export timestamp, so the
+   auto-backup can tell whether anything actually changed since the last
+   upload. Compared only against itself — a dependency-free djb2 hash. */
+export const backupSignature = (
+  people: Person[],
+  events: PayatEvent[],
+  txns: Txn[],
+  invitations: Invitation[] = []
+): string => {
+  const json = JSON.stringify({ people, events, txns, invitations });
+  let h = 5381;
+  for (let i = 0; i < json.length; i++) h = ((h << 5) + h + json.charCodeAt(i)) >>> 0;
+  return `${json.length}-${h.toString(16)}`;
+};
