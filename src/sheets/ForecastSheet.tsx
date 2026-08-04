@@ -73,7 +73,7 @@ export function ForecastSheet({
                 }}
               >
                 <Txt w={700} size={12} color={p.fromHistory ? C.greenDeep : C.inkSoft} num>
-                  ×{p.multiplier.toFixed(1)}
+                  ×{p.multiplier.toFixed(2)}
                 </Txt>
               </View>
             </View>

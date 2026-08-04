@@ -1,10 +1,10 @@
 import React, { useState } from 'react';
 import { Image, Linking, Pressable, ScrollView, StyleSheet, View } from 'react-native';
 import { useNavigation } from '@react-navigation/native';
-import Constants from 'expo-constants';
 import * as Clipboard from 'expo-clipboard';
 import { useData } from '../data';
 import { formatIntlPhone } from '../lib';
+import { appVersionLabel } from '../appVersion';
 import { C, SHADOW } from '../theme';
 import { KasavuHeader } from '../components/Header';
 import { Card, Row, Txt } from '../components/UI';
@@ -63,7 +63,7 @@ export function AboutScreen() {
   const nav = useNavigation<RootNav>();
   const { t } = useData();
   const [settingsOpen, setSettingsOpen] = useState(false);
-  const version = Constants.expoConfig?.version ?? '1.0.0';
+  const version = appVersionLabel();
   const phoneDisplay = formatIntlPhone(AUTHOR_WHATSAPP);
 
   return (
@@ -124,7 +124,7 @@ export function AboutScreen() {
               Payat Book
             </Txt>
             <Txt size={13.5} color={C.inkSoft} num>
-              v{version}
+              {version}
             </Txt>
             <Txt size={14.5} color={C.inkSoft} style={{ marginTop: 6, textAlign: 'center' }}>
               {t('aboutTagline')}

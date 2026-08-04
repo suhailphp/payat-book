@@ -36,6 +36,29 @@ Logic tests: `npm test` (compiles the pure modules and runs the node suite).
 
 Scan the QR code with [Expo Go](https://expo.dev/go) on an Android phone.
 
+## Versioning (bump before every release build)
+
+The version shown in **About** and **Settings** is read at runtime from the
+installed binary (`expo-application`'s `nativeApplicationVersion` /
+`nativeBuildVersion`), so it always matches the APK — there is no version
+string to edit in the source. The single source of truth is `app.json`:
+
+```jsonc
+"version": "1.2.0",        // user-facing version → "v1.2.0"
+"android": { "versionCode": 3 }   // integer build number → "(3)"; MUST increase each release
+```
+
+Before a release build:
+
+1. Bump `expo.version` (e.g. `1.2.0` → `1.3.0`) and increment
+   `expo.android.versionCode` by 1. Play Store rejects an APK whose
+   `versionCode` is not higher than the last upload.
+2. `npx expo prebuild -p android` regenerates `android/` from `app.json`, so
+   `versionName` / `versionCode` in `android/app/build.gradle` follow
+   automatically. (If you build the existing `android/` without re-running
+   prebuild, update those two lines by hand to match.)
+3. Build (below). About/Settings will then show `v<version> (<versionCode>)`.
+
 ## Build an APK
 
 **Option A — EAS build (cloud, no local Android SDK needed):**

@@ -11,6 +11,7 @@ import { InfoIcon } from '../components/Icons';
 import { confirmSheet } from '../components/ConfirmSheet';
 import { toast } from '../components/Toast';
 import { getPermissionGranted, notificationsSupported, requestPermission } from '../notifications';
+import { appVersionLabel } from '../appVersion';
 import type { RootNav } from '../nav';
 
 export function SettingsSheet({ visible, onClose }: { visible: boolean; onClose: () => void }) {
@@ -120,6 +121,9 @@ export function SettingsSheet({ visible, onClose }: { visible: boolean; onClose:
         {meta.lastBackup
           ? tp('lastBackup', { d: dstrFromMillis(Number(meta.lastBackup)) })
           : t('noBackup')}
+      </Txt>
+      <Txt size={12} color={C.inkSoft} num style={{ textAlign: 'center', marginTop: 18, opacity: 0.7 }}>
+        {appVersionLabel()}
       </Txt>
     </Sheet>
   );
