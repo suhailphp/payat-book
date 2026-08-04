@@ -14,6 +14,17 @@ export const HomeIcon = ({ size = 26, color = '#5C6657' }: P) => (
   </Svg>
 );
 
+/* Dashboard: 2×2 tiles — distinguishes the overview tab from the book tab,
+   which keeps the open-book HomeIcon. */
+export const DashboardIcon = ({ size = 26, color = '#5C6657' }: P) => (
+  <Svg {...base(size)} fill="none" stroke={color} strokeWidth={1.9}>
+    <Rect x={4} y={4} width={7} height={7} rx={1.5} />
+    <Rect x={13} y={4} width={7} height={7} rx={1.5} />
+    <Rect x={4} y={13} width={7} height={7} rx={1.5} />
+    <Rect x={13} y={13} width={7} height={7} rx={1.5} />
+  </Svg>
+);
+
 export const PeopleIcon = ({ size = 26, color = '#5C6657' }: P) => (
   <Svg {...base(size)} fill="none" stroke={color} strokeWidth={1.9}>
     <Circle cx={9} cy={8} r={3.2} />

@@ -3,6 +3,7 @@ import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 
 export type TabParams = {
   HomeTab: undefined;
+  BookTab: undefined;
   PeopleTab: undefined;
   PayattsTab: undefined;
   PaymentsTab: undefined;

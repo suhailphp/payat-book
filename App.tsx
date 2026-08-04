@@ -14,11 +14,12 @@ import {
 } from '@expo-google-fonts/baloo-chettan-2';
 import { DataProvider, useData } from './src/data';
 import { C, FONT } from './src/theme';
-import { HomeIcon, PeopleIcon, EnvIcon, PayHandsIcon } from './src/components/Icons';
+import { HomeIcon, DashboardIcon, PeopleIcon, EnvIcon, PayHandsIcon } from './src/components/Icons';
 import { ToastHost } from './src/components/Toast';
 import { ConfirmHost } from './src/components/ConfirmSheet';
 import { OnboardingScreen } from './src/screens/OnboardingScreen';
 import { HomeScreen } from './src/screens/HomeScreen';
+import { BookScreen } from './src/screens/BookScreen';
 import { AboutScreen } from './src/screens/AboutScreen';
 import { PeopleScreen } from './src/screens/PeopleScreen';
 import { PersonScreen } from './src/screens/PersonScreen';
@@ -69,7 +70,12 @@ function Tabs() {
       <Tab.Screen
         name="HomeTab"
         component={HomeScreen}
-        options={{ title: t('tabBook'), tabBarIcon: ({ color }) => <HomeIcon color={color} /> }}
+        options={{ title: t('tabDashboard'), tabBarIcon: ({ color }) => <DashboardIcon color={color} /> }}
+      />
+      <Tab.Screen
+        name="BookTab"
+        component={BookScreen}
+        options={{ title: t('tabBookPage'), tabBarIcon: ({ color }) => <HomeIcon color={color} /> }}
       />
       <Tab.Screen
         name="PeopleTab"
