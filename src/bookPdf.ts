@@ -40,11 +40,14 @@ export function bookHtml(
   const net = tot.recv - tot.give;
   parts.push(`<!doctype html><html><head><meta charset="utf-8"/>
 <meta name="viewport" content="width=device-width, initial-scale=1"/>
-<link href="https://fonts.googleapis.com/css2?family=Baloo+Chettan+2:wght@400;600;700&display=swap" rel="stylesheet"/>
 <style>
   @page { size: A4 landscape; margin: 12mm; @bottom-right { content: counter(page) " / " counter(pages); font-size: 9px; color: #5C6657; } }
   * { box-sizing: border-box; }
-  body { font-family: "Baloo Chettan 2", Georgia, serif; color: #20291F; margin: 0; }
+  /* System fonts only — NO network stylesheet. A remote <link> made the print
+     WebView block on the font download, so on the village network the export
+     hung forever with the button stuck. "Noto Sans Malayalam" is built into
+     Android and renders the ML labels/names. */
+  body { font-family: "Noto Sans Malayalam", system-ui, -apple-system, Roboto, "Segoe UI", Georgia, serif; color: #20291F; margin: 0; }
   .head { display: flex; justify-content: space-between; align-items: flex-end; margin-bottom: 6px; }
   .brand { font-size: 22px; font-weight: 700; color: #0A3F2A; }
   .brand .p { color: #C9A227; }
@@ -122,12 +125,30 @@ export async function exportBookPdf(
     return;
   }
 
-  /* loaded lazily so the print native module is only required when the user
-     actually exports — the app must not fail to start over an unused feature. */
+  /* Loaded lazily so the print native module is only required when the user
+     actually exports. Each step throws a clear message on failure — nothing is
+     swallowed, so the caller can always toast the real reason and re-enable. */
   const Print = require('expo-print');
-  const Sharing = require('expo-sharing');
-  const { uri } = await Print.printToFileAsync({ html: bookHtml(rows, tot, owner, lang, t, tp, false) });
-  if (await Sharing.isAvailableAsync()) {
-    await Sharing.shareAsync(uri, { mimeType: 'application/pdf', dialogTitle: `payat-book-${today()}.pdf`, UTI: 'com.adobe.pdf' });
+  if (!Print || typeof Print.printToFileAsync !== 'function') {
+    throw new Error('expo-print is not available in this build');
   }
+  const Sharing = require('expo-sharing');
+
+  const { uri } = await Print.printToFileAsync({
+    html: bookHtml(rows, tot, owner, lang, t, tp, false),
+    base64: false,
+  });
+  if (!uri) throw new Error('PDF was not created');
+
+  /* printToFileAsync returns a file:// URI in the app cache, which expo-sharing
+     exposes to other apps via its FileProvider. Explicit mimeType + UTI so the
+     Android/iOS share sheet offers PDF-capable apps. */
+  if (!(await Sharing.isAvailableAsync())) {
+    throw new Error('No app available to share the PDF');
+  }
+  await Sharing.shareAsync(uri, {
+    mimeType: 'application/pdf',
+    dialogTitle: `payat-book-${today()}.pdf`,
+    UTI: 'com.adobe.pdf',
+  });
 }

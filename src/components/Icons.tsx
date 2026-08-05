@@ -153,3 +153,24 @@ export const CheckIcon = ({ size = 18, color = '#0E5A3C' }: P) => (
     <Path d="M5 12.5l4.2 4.2L19 6.8" />
   </Svg>
 );
+
+/* Funnel — the combined sort/filter button on the Book toolbar. */
+export const FunnelIcon = ({ size = 22, color = '#0A3F2A' }: P) => (
+  <Svg {...base(size)} fill="none" stroke={color} strokeWidth={1.9} strokeLinecap="round" strokeLinejoin="round">
+    <Path d="M4 5h16l-6.2 7.3v5.7l-3.6 2v-7.7L4 5z" />
+  </Svg>
+);
+
+/* Corner brackets pointing out — enter full-screen (hide the controls). */
+export const ExpandIcon = ({ size = 22, color = '#0A3F2A' }: P) => (
+  <Svg {...base(size)} fill="none" stroke={color} strokeWidth={1.9} strokeLinecap="round" strokeLinejoin="round">
+    <Path d="M4 9V4h5M20 9V4h-5M4 15v5h5M20 15v5h-5" />
+  </Svg>
+);
+
+/* Corner brackets pointing in — leave full-screen (bring the controls back). */
+export const CollapseIcon = ({ size = 22, color = '#0A3F2A' }: P) => (
+  <Svg {...base(size)} fill="none" stroke={color} strokeWidth={1.9} strokeLinecap="round" strokeLinejoin="round">
+    <Path d="M9 4v5H4M15 4v5h5M9 20v-5H4M15 20v-5h5" />
+  </Svg>
+);
