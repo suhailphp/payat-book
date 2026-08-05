@@ -44,13 +44,13 @@ installed binary (`expo-application`'s `nativeApplicationVersion` /
 string to edit in the source. The single source of truth is `app.json`:
 
 ```jsonc
-"version": "1.5.0",        // user-facing version → "v1.5.0"
-"android": { "versionCode": 6 }   // integer build number → "(6)"; MUST increase each release
+"version": "1.6.0",        // user-facing version → "v1.6.0"
+"android": { "versionCode": 7 }   // integer build number → "(7)"; MUST increase each release
 ```
 
 Before a release build:
 
-1. Bump `expo.version` (e.g. `1.4.0` → `1.5.0`) and increment
+1. Bump `expo.version` (e.g. `1.5.0` → `1.6.0`) and increment
    `expo.android.versionCode` by 1. Play Store rejects an APK whose
    `versionCode` is not higher than the last upload.
 2. `npx expo prebuild -p android` regenerates `android/` from `app.json`, so
