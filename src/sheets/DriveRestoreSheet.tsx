@@ -38,7 +38,7 @@ export function DriveRestoreSheet({
       })
       .catch(() => {
         if (alive) {
-          toast(t('driveListFailed'));
+          toast(t('driveUnreachable'));
           onClose();
         }
       })
@@ -56,12 +56,12 @@ export function DriveRestoreSheet({
     try {
       const backup = await driveDownload(item.id);
       if (!backup) {
-        toast(t('driveRestoreFailed'));
+        toast(t('driveUnreachable'));
         return;
       }
       const ok = await confirmSheet({
-        message: tp('qRestore', { p: backup.people.length, t: backup.txns.length }),
-        confirmLabel: t('qRestoreBtn'),
+        message: t('qDriveRestore'),
+        confirmLabel: t('driveRestore'),
         destructive: false,
       });
       if (!ok) return;
@@ -69,40 +69,34 @@ export function DriveRestoreSheet({
       onClose();
       toast(t('tRestored'));
     } catch {
-      toast(t('driveRestoreFailed'));
+      toast(t('driveUnreachable'));
     } finally {
       setBusy(false);
     }
   };
 
   return (
-    <Sheet visible={visible} onClose={onClose} title={t('driveRestoreTitle')}>
+    <Sheet visible={visible} onClose={onClose} title={t('drivePickBackup')}>
       {loading ? (
         <View style={{ paddingVertical: 40, alignItems: 'center' }}>
           <ActivityIndicator color={C.green} />
         </View>
       ) : items.length === 0 ? (
-        <Empty desc={t('driveNoBackups')} />
+        <Empty desc={t('driveNoBackup')} />
       ) : (
         <>
-          <Txt size={13.5} color={C.inkSoft} style={{ marginBottom: 8 }}>
-            {t('driveRestorePick')}
-          </Txt>
-          {items.map((it, i) => (
-            <Row key={it.id} last={i === items.length - 1} onPress={() => pick(it)}>
-              <View style={{ flex: 1, minWidth: 0 }}>
-                <Txt w={600} size={16} num>
-                  {dstrFromMillis(it.ms)}
-                  {it.hhmm ? `  ${it.hhmm}` : ''}
-                </Txt>
-                {it.people != null ? (
-                  <Txt size={13} color={C.inkSoft} num>
-                    {tp('drivePeopleCount', { n: it.people })}
+          {items.map((it, i) => {
+            const d = `${dstrFromMillis(it.ms)}${it.hhmm ? ` ${it.hhmm}` : ''}`;
+            return (
+              <Row key={it.id} last={i === items.length - 1} onPress={() => pick(it)}>
+                <View style={{ flex: 1, minWidth: 0 }}>
+                  <Txt w={600} size={16} num>
+                    {it.people != null ? tp('driveBackupItem', { d, n: it.people }) : d}
                   </Txt>
-                ) : null}
-              </View>
-            </Row>
-          ))}
+                </View>
+              </Row>
+            );
+          })}
         </>
       )}
     </Sheet>

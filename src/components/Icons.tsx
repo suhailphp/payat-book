@@ -138,3 +138,18 @@ export const WaIcon = ({ size = 22, color = '#fff' }: P) => (
     <Path d="M12 3a9 9 0 00-7.7 13.6L3 21l4.5-1.2A9 9 0 1012 3zm0 2a7 7 0 110 14 7 7 0 01-3.5-.9l-.4-.2-2.4.6.6-2.3-.2-.4A7 7 0 0112 5zm-2.4 3.6c-.2 0-.5 0-.7.3-.2.3-.9.9-.9 2.1s.9 2.5 1 2.6c.1.2 1.8 2.9 4.5 3.9 2.2.9 2.7.7 3.1.7.5-.1 1.5-.6 1.7-1.2.2-.6.2-1.1.2-1.2-.1-.1-.2-.2-.5-.3l-1.7-.8c-.2-.1-.4-.1-.6.1l-.8 1c-.1.2-.3.2-.5.1-.3-.1-1.1-.4-2.1-1.3-.8-.7-1.3-1.5-1.4-1.8-.1-.3 0-.4.1-.5l.4-.5c.1-.2.2-.3.3-.5.1-.2 0-.4 0-.5l-.8-1.9c-.2-.4-.4-.4-.6-.4h-.2z" />
   </Svg>
 );
+
+/* Smartphone outline — marks the "this phone" backup card. */
+export const PhoneIcon = ({ size = 22, color = '#0E5A3C' }: P) => (
+  <Svg {...base(size)} fill="none" stroke={color} strokeWidth={1.9} strokeLinecap="round" strokeLinejoin="round">
+    <Rect x={7} y={3} width={10} height={18} rx={2.4} />
+    <Path d="M11 18h2" />
+  </Svg>
+);
+
+/* Simple green check — the "backed up / connected" affirmation. */
+export const CheckIcon = ({ size = 18, color = '#0E5A3C' }: P) => (
+  <Svg {...base(size)} fill="none" stroke={color} strokeWidth={2.4} strokeLinecap="round" strokeLinejoin="round">
+    <Path d="M5 12.5l4.2 4.2L19 6.8" />
+  </Svg>
+);
