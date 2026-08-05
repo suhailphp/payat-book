@@ -221,8 +221,7 @@ ml:{
   restoreWarn:"തിരിച്ചെടുക്കുമ്പോൾ ബുക്കിലുള്ളതെല്ലാം മാറ്റപ്പെടും. ആ ബാക്കപ്പിന് ശേഷം ചേർത്തതെല്ലാം നഷ്ടപ്പെടും.",
   restoreConfirmWarn:"ഇപ്പോഴുള്ള ബുക്ക് ({p} പേർ, {t} ഇടപാടുകൾ) ബാക്കപ്പ് ഉപയോഗിച്ച് ({bp} പേർ, {bt} ഇടപാടുകൾ) മാറ്റും. അതിന് ശേഷം ചേർത്തതെല്ലാം നഷ്ടപ്പെടും.",
   restoreConfirmBtn:"ബുക്ക് മാറ്റുക",
-  /* TODO ml: owner to supply Malayalam for recoverPrev — English shown meanwhile */
-  recoverPrev:"Recover previous book",
+  recoverPrev:"മുൻപത്തെ ബുക്ക് തിരിച്ചെടുക്കുക",
   autoBackupLbl:"സ്വയം ബാക്കപ്പ്",
   autoBackupNext:"അടുത്ത ബാക്കപ്പ് {d}",
   autoOff:"വേണ്ട",
