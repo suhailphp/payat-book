@@ -84,8 +84,11 @@ export function PersonScreen() {
                 w={700}
                 size={35}
                 num
+                adjustsFontSizeToFit
+                numberOfLines={1}
+                minimumFontScale={0.7}
                 color={b > 0 ? C.green : b < 0 ? C.red : C.ink}
-                style={{ textAlign: 'center', marginTop: 6 }}
+                style={{ textAlign: 'center', marginTop: 6, alignSelf: 'stretch' }}
               >
                 {fmt(b)}
               </Txt>

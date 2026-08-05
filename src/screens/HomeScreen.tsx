@@ -135,7 +135,17 @@ export function HomeScreen() {
             <Txt w={700} size={13} color={C.inkSoft} style={st.lbl}>
               {t('toReceive')}
             </Txt>
-            <CountUp value={pos.recv} format={fmt} w={700} size={29} color={C.green} style={{ marginTop: 2 }} />
+            <CountUp
+              value={pos.recv}
+              format={fmt}
+              w={700}
+              size={29}
+              color={C.green}
+              adjustsFontSizeToFit
+              numberOfLines={1}
+              minimumFontScale={0.7}
+              style={{ marginTop: 2, alignSelf: 'stretch', textAlign: 'center' }}
+            />
             <Txt size={13} color={C.inkSoft} num>
               {pos.cr} {pos.cr === 1 ? t('ppl1') : t('ppl')}
             </Txt>
@@ -144,7 +154,17 @@ export function HomeScreen() {
             <Txt w={700} size={13} color={C.inkSoft} style={st.lbl}>
               {t('toGive')}
             </Txt>
-            <CountUp value={pos.give} format={fmt} w={700} size={29} color={C.red} style={{ marginTop: 2 }} />
+            <CountUp
+              value={pos.give}
+              format={fmt}
+              w={700}
+              size={29}
+              color={C.red}
+              adjustsFontSizeToFit
+              numberOfLines={1}
+              minimumFontScale={0.7}
+              style={{ marginTop: 2, alignSelf: 'stretch', textAlign: 'center' }}
+            />
             <Txt size={13} color={C.inkSoft} num>
               {pos.cg} {pos.cg === 1 ? t('ppl1') : t('ppl')}
             </Txt>
@@ -301,13 +321,33 @@ export function HomeScreen() {
                   <Txt w={700} size={12.5} color={C.inkSoft} style={st.lbl}>
                     {t('statReceived')}
                   </Txt>
-                  <CountUp value={thisMonth.in} format={fmt} w={700} size={22} color={C.green} />
+                  <CountUp
+                    value={thisMonth.in}
+                    format={fmt}
+                    w={700}
+                    size={22}
+                    color={C.green}
+                    adjustsFontSizeToFit
+                    numberOfLines={1}
+                    minimumFontScale={0.7}
+                    style={{ alignSelf: 'stretch' }}
+                  />
                 </View>
                 <View style={[st.stat, { flex: 1 }]}>
                   <Txt w={700} size={12.5} color={C.inkSoft} style={st.lbl}>
                     {t('statGiven')}
                   </Txt>
-                  <CountUp value={thisMonth.out} format={fmt} w={700} size={22} color={C.red} />
+                  <CountUp
+                    value={thisMonth.out}
+                    format={fmt}
+                    w={700}
+                    size={22}
+                    color={C.red}
+                    adjustsFontSizeToFit
+                    numberOfLines={1}
+                    minimumFontScale={0.7}
+                    style={{ alignSelf: 'stretch' }}
+                  />
                 </View>
               </View>
             </StaggerIn>

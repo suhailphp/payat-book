@@ -71,11 +71,29 @@ export function ForecastCard({
         </Txt>
       </View>
       <View style={{ padding: 16, alignItems: 'center' }}>
-        <CountUp value={forecast.expected} format={fmt} w={700} size={32} color={C.greenDeep} />
+        <CountUp
+          value={forecast.expected}
+          format={fmt}
+          w={700}
+          size={32}
+          color={C.greenDeep}
+          adjustsFontSizeToFit
+          numberOfLines={1}
+          minimumFontScale={0.7}
+          style={{ alignSelf: 'stretch', textAlign: 'center' }}
+        />
         <Txt size={13.5} color={C.inkSoft} style={{ marginTop: 2, textAlign: 'center' }}>
           {tp('forecastFrom', { n: forecast.peopleCount })}
         </Txt>
-        <Txt size={13} color={C.inkSoft} num style={{ marginTop: 6, textAlign: 'center' }}>
+        <Txt
+          size={13}
+          color={C.inkSoft}
+          num
+          adjustsFontSizeToFit
+          numberOfLines={1}
+          minimumFontScale={0.7}
+          style={{ marginTop: 6, alignSelf: 'stretch', textAlign: 'center' }}
+        >
           {tp('forecastRangeLbl', { low: fmt(forecast.low), high: fmt(forecast.high) })}
         </Txt>
         <View style={{ alignSelf: 'stretch', marginTop: 12 }}>

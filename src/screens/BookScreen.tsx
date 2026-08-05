@@ -278,7 +278,15 @@ export function BookScreen() {
           {filtersActive ? <View style={st.dot} /> : null}
         </Pressable>
       </View>
-      <Txt size={12.5} color={C.inkSoft} num numberOfLines={1} style={{ marginTop: 8 }}>
+      <Txt
+        size={12.5}
+        color={C.inkSoft}
+        num
+        numberOfLines={1}
+        adjustsFontSizeToFit
+        minimumFontScale={0.7}
+        style={{ marginTop: 8 }}
+      >
         {tp('totalsLine', { n: tot.count, r: fmt(tot.recv), g: fmt(tot.give) })}
       </Txt>
     </View>
