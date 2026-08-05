@@ -18,9 +18,30 @@ export const DRIVE_SCOPE = 'https://www.googleapis.com/auth/drive.file';
    browsed and downloaded by hand. */
 export const DRIVE_FOLDER_NAME = 'Payat Book';
 
-/* Keep only the newest N backups in the folder; older ones are pruned so the
-   user's Drive doesn't slowly fill up. */
+/* Keep only the newest N manual backups; older ones are pruned. Automatic
+   monthly files are retained separately (newest 3), never crossing this. */
 export const DRIVE_KEEP = 10;
+export const DRIVE_AUTO_KEEP = 3;
 
-/* Auto-backup on app open only when the last Drive backup is older than this. */
-export const DRIVE_AUTO_INTERVAL_MS = 24 * 60 * 60 * 1000;
+export const DAY_MS = 24 * 60 * 60 * 1000;
+
+/* User-chosen automatic-backup cadence (WhatsApp-style). Persisted in
+   meta.autoBackupFreq; default weekly. */
+export type AutoFreq = 'off' | 'daily' | 'weekly' | 'monthly';
+export const DEFAULT_AUTO_FREQ: AutoFreq = 'weekly';
+
+/* Interval for a frequency, or null when off. Unknown values fall back to the
+   default so a stray meta value can never disable backups silently. */
+export const autoFreqMs = (f: string | undefined): number | null => {
+  switch (f) {
+    case 'off':
+      return null;
+    case 'daily':
+      return DAY_MS;
+    case 'monthly':
+      return 30 * DAY_MS;
+    case 'weekly':
+    default:
+      return 7 * DAY_MS;
+  }
+};

@@ -3,7 +3,7 @@ import { Pressable, ScrollView, View } from 'react-native';
 import { useNavigation } from '@react-navigation/native';
 import { useData } from '../data';
 import { backupSignature, dstrFromMillis, serializeBackup } from '../lib';
-import { exportBackup, pickBackup } from '../backup';
+import { exportBackup, listBeforeRestore, pickBackup } from '../backup';
 import {
   driveBackup,
   driveConnect,
@@ -13,23 +13,31 @@ import {
   driveRestoreSession,
   driveSupported,
 } from '../drive';
-import { DRIVE_AUTO_INTERVAL_MS } from '../config/google';
+import { type AutoFreq, autoFreqMs, DAY_MS, DEFAULT_AUTO_FREQ } from '../config/google';
 import { C, SHADOW } from '../theme';
 import { KasavuHeader } from '../components/Header';
-import { Avatar, Btn, Txt } from '../components/UI';
-import { CheckIcon, PhoneIcon } from '../components/Icons';
+import { Avatar, Btn, Row, Txt } from '../components/UI';
+import { CheckIcon, ChevronRightIcon, PhoneIcon } from '../components/Icons';
 import { GoogleDriveIcon, GoogleGIcon } from '../components/GoogleLogos';
 import { confirmSheet } from '../components/ConfirmSheet';
 import { toast } from '../components/Toast';
 import { SettingsSheet } from '../sheets/SettingsSheet';
 import { DriveRestoreSheet } from '../sheets/DriveRestoreSheet';
+import { AutoBackupSheet } from '../sheets/AutoBackupSheet';
+import { RecoverSheet } from '../sheets/RecoverSheet';
 import type { RootNav } from '../nav';
 
-/* Google brand tokens — used only where we present Google's own identity. */
 const G_BLUE = '#4285F4';
 const G_CARD_BG = '#F5F9FF';
 const G_BTN_BORDER = '#DADCE0';
 const G_BTN_TEXT = '#3C4043';
+
+const FREQ_KEY: Record<AutoFreq, string> = {
+  off: 'autoOff',
+  daily: 'autoDaily',
+  weekly: 'autoWeekly',
+  monthly: 'autoMonthly',
+};
 
 const card = {
   backgroundColor: C.paper,
@@ -40,16 +48,7 @@ const card = {
   ...SHADOW,
 } as const;
 
-/* Header of a card: a round badge, a title and a small caption beneath. */
-const CardHead = ({
-  badge,
-  title,
-  caption,
-}: {
-  badge: React.ReactNode;
-  title: string;
-  caption: string;
-}) => (
+const CardHead = ({ badge, title, caption }: { badge: React.ReactNode; title: string; caption: string }) => (
   <View style={{ flexDirection: 'row', alignItems: 'center', marginBottom: 14 }}>
     {badge}
     <View style={{ flex: 1, minWidth: 0, marginLeft: 12 }}>
@@ -63,9 +62,13 @@ const CardHead = ({
   </View>
 );
 
-/* Full-screen backup page. Two clearly separate destination cards — "This
-   phone" (local file) and "Google Drive" (branded, account-based) — under a
-   one-glance status banner. */
+/* Red warning printed under every restore button. */
+const RestoreWarn = ({ text }: { text: string }) => (
+  <Txt size={13} color={C.red} style={{ marginTop: 8 }}>
+    {text}
+  </Txt>
+);
+
 export function BackupScreen() {
   const nav = useNavigation<RootNav>();
   const { t, tp, people, events, txns, invitations, meta, setMeta, restoreAll } = useData();
@@ -92,20 +95,37 @@ export function BackupScreen() {
       return;
     }
     const ok = await confirmSheet({
-      message: tp('qRestore', { p: picked.people.length, t: picked.txns.length }),
-      confirmLabel: t('qRestoreBtn'),
-      destructive: false,
+      message: tp('restoreConfirmWarn', {
+        p: people.length,
+        t: txns.length,
+        bp: picked.people.length,
+        bt: picked.txns.length,
+      }),
+      confirmLabel: t('restoreConfirmBtn'),
+      destructive: true,
     });
     if (!ok) return;
     await restoreAll(picked.people, picked.events, picked.txns, picked.invitations);
+    refreshRecover();
     toast(t('tRestored'));
   };
+
+  /* ---------- recover previous book ---------- */
+  const [recoverOpen, setRecoverOpen] = React.useState(false);
+  const [recoverCount, setRecoverCount] = React.useState(0);
+  const refreshRecover = React.useCallback(() => {
+    listBeforeRestore().then((f) => setRecoverCount(f.length));
+  }, []);
+  React.useEffect(() => {
+    refreshRecover();
+  }, [refreshRecover]);
 
   /* ---------- google drive ---------- */
   const [connected, setConnected] = React.useState(false);
   const [email, setEmail] = React.useState('');
   const [busy, setBusy] = React.useState(false);
   const [restoreOpen, setRestoreOpen] = React.useState(false);
+  const [autoOpen, setAutoOpen] = React.useState(false);
 
   React.useEffect(() => {
     if (!driveSupported) return;
@@ -175,15 +195,25 @@ export function BackupScreen() {
     }
   };
 
-  /* ---------- glanceable status ---------- */
+  const onDriveRestored = () => {
+    setRestoreOpen(false);
+    refreshRecover();
+  };
+
+  /* ---------- status + schedule ---------- */
   const last = Number(meta.driveLastBackup || 0);
-  const days = last ? Math.floor((Date.now() - last) / DRIVE_AUTO_INTERVAL_MS) : null;
-  const statusOk = connected && !!last && Date.now() - last < DRIVE_AUTO_INTERVAL_MS;
+  const days = last ? Math.floor((Date.now() - last) / DAY_MS) : null;
+  const statusOk = connected && !!last && Date.now() - last < DAY_MS;
   const statusText = statusOk
     ? t('driveStatusOk')
     : connected && days != null
       ? tp('driveStatusStale', { d: days })
       : t('driveStatusNone');
+
+  const freq = (meta.autoBackupFreq as AutoFreq) ?? DEFAULT_AUTO_FREQ;
+  const freqMs = autoFreqMs(freq);
+  const nextBackupLabel =
+    freqMs != null ? dstrFromMillis((last || Date.now()) + freqMs) : '';
 
   const scrollToDrive = () =>
     scrollRef.current?.scrollTo({ y: Math.max(0, driveCardY.current - 12), animated: true });
@@ -245,6 +275,14 @@ export function BackupScreen() {
           </Txt>
           <Btn label={t('saveBackup')} onPress={doExport} />
           <Btn label={t('restore')} kind="ghost" onPress={doRestore} />
+          <RestoreWarn text={t('restoreWarn')} />
+          {recoverCount > 0 ? (
+            <Pressable onPress={() => setRecoverOpen(true)} style={{ paddingTop: 12, alignItems: 'center' }}>
+              <Txt w={600} size={13.5} color={C.green}>
+                {t('recoverPrev')}
+              </Txt>
+            </Pressable>
+          ) : null}
         </View>
 
         {/* Card B — google drive */}
@@ -285,14 +323,34 @@ export function BackupScreen() {
                   </Txt>
                   <CheckIcon size={18} color={C.green} />
                 </View>
-                <Txt size={13} color={C.inkSoft} num style={{ marginBottom: 12 }}>
+                <Txt size={13} color={C.inkSoft} num style={{ marginBottom: 4 }}>
                   {meta.driveLastBackup
                     ? tp('driveLastBackup', { d: dstrFromMillis(Number(meta.driveLastBackup)) })
                     : t('driveNoBackup')}
                 </Txt>
+
+                {/* automatic backup schedule */}
+                <Row onPress={() => setAutoOpen(true)}>
+                  <Txt w={600} size={16} style={{ flex: 1 }}>
+                    {t('autoBackupLbl')}
+                  </Txt>
+                  <Txt size={15} color={C.inkSoft} style={{ marginRight: 6 }}>
+                    {t(FREQ_KEY[freq])}
+                  </Txt>
+                  <ChevronRightIcon />
+                </Row>
+                {freqMs != null ? (
+                  <Txt size={13} color={C.inkSoft} num style={{ marginTop: 6, marginBottom: 12 }}>
+                    {tp('autoBackupNext', { d: nextBackupLabel })}
+                  </Txt>
+                ) : (
+                  <View style={{ height: 12 }} />
+                )}
+
                 <Btn label={t('driveBackupNow')} onPress={doDriveBackup} />
                 <Btn label={t('driveRestore')} kind="ghost" onPress={() => setRestoreOpen(true)} />
-                <Pressable onPress={doDisconnect} style={{ paddingVertical: 12, alignItems: 'center' }}>
+                <RestoreWarn text={t('restoreWarn')} />
+                <Pressable onPress={doDisconnect} style={{ paddingTop: 14, paddingBottom: 4, alignItems: 'center' }}>
                   <Txt w={600} size={14} color={C.inkSoft}>
                     {t('driveDisconnect')}
                   </Txt>
@@ -330,10 +388,14 @@ export function BackupScreen() {
       </ScrollView>
 
       <SettingsSheet visible={settingsOpen} onClose={() => setSettingsOpen(false)} />
-      <DriveRestoreSheet
-        visible={restoreOpen}
-        folderId={meta.driveFolderId}
-        onClose={() => setRestoreOpen(false)}
+      <DriveRestoreSheet visible={restoreOpen} folderId={meta.driveFolderId} onClose={onDriveRestored} />
+      <AutoBackupSheet visible={autoOpen} onClose={() => setAutoOpen(false)} />
+      <RecoverSheet
+        visible={recoverOpen}
+        onClose={() => {
+          setRecoverOpen(false);
+          refreshRecover();
+        }}
       />
     </View>
   );

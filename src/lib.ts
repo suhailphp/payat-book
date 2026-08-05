@@ -585,13 +585,50 @@ export const parseDriveBackupName = (name: string): { ms: number; hhmm: string }
   return { ms: dt.getTime(), hhmm: `${hh}:${mi}` };
 };
 
-/* Retention: given the backup filenames in the folder, return the ones to
-   delete so only the newest `keep` remain. Sorted newest-first by the
-   timestamp in the name; names that don't parse sort oldest (pruned first) so
-   stray files can't accumulate. */
+/* Manual-backup retention: given the *manual* filenames (payat-backup-*),
+   return the ones to delete so only the newest `keep` remain. Auto files never
+   reach here (different prefix), so the two retentions stay independent. */
 export const driveBackupsToPrune = (names: string[], keep = 10): string[] => {
   const key = (n: string) => parseDriveBackupName(n)?.ms ?? -1;
-  return [...names].sort((a, b) => key(b) - key(a)).slice(Math.max(0, keep));
+  return names
+    .filter((n) => parseDriveBackupName(n) != null)
+    .sort((a, b) => key(b) - key(a))
+    .slice(Math.max(0, keep));
+};
+
+/* Automatic backups reuse ONE file per calendar month: payat-auto-YYYY-MM.json.
+   A new file appears only when the month rolls over; within a month the same
+   file is updated in place. */
+export const driveAutoFilename = (d: Date = new Date()): string =>
+  `payat-auto-${d.getFullYear()}-${pad2(d.getMonth() + 1)}.json`;
+
+/* Epoch millis (first of the month) parsed from an auto filename, or null. */
+export const parseAutoBackupName = (name: string): number | null => {
+  const m = /^payat-auto-(\d{4})-(\d{2})\.json$/.exec(name);
+  return m ? new Date(Number(m[1]), Number(m[2]) - 1, 1).getTime() : null;
+};
+
+/* Auto-backup retention: keep the newest `keep` monthly files, independent of
+   the manual retention above (only payat-auto-* names are considered). */
+export const autoBackupsToPrune = (names: string[], keep = 3): string[] => {
+  const key = (n: string) => parseAutoBackupName(n) ?? -1;
+  return names
+    .filter((n) => parseAutoBackupName(n) != null)
+    .sort((a, b) => key(b) - key(a))
+    .slice(Math.max(0, keep));
+};
+
+/* Local safety snapshot written silently before any restore, so a mistaken
+   restore can be undone. Kept in app storage, not Drive. */
+export const beforeRestoreFilename = (d: Date = new Date()): string =>
+  `payat-before-restore-${d.getFullYear()}-${pad2(d.getMonth() + 1)}-${pad2(d.getDate())}-${pad2(
+    d.getHours()
+  )}${pad2(d.getMinutes())}.json`;
+
+/* Parse the timestamp out of a before-restore filename → millis, or null. */
+export const parseBeforeRestoreName = (name: string): number | null => {
+  const m = /^payat-before-restore-(\d{4})-(\d{2})-(\d{2})-(\d{2})(\d{2})\.json$/.exec(name);
+  return m ? new Date(+m[1], +m[2] - 1, +m[3], +m[4], +m[5]).getTime() : null;
 };
 
 /* A stable fingerprint of the ledger, ignoring the export timestamp, so the

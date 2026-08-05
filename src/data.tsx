@@ -3,6 +3,7 @@ import * as db from './db';
 import { Lang, tFor, tpFor } from './i18n';
 import type { Invitation, PayatEvent, Person, Txn } from './lib';
 import { closeInvitation, today } from './lib';
+import { writeBeforeRestore } from './backup';
 import { cancelReminders, scheduleInvitationReminders } from './notifications';
 
 type Data = {
@@ -150,6 +151,9 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
         setMetaState((m) => ({ ...m, [k]: v }));
       },
       restoreAll: async (p, e, x, inv) => {
+        /* silent safety snapshot of the CURRENT book before it's replaced —
+           covers every restore path (file, Drive, recover). Never blocks. */
+        await writeBeforeRestore(people, events, txns, invitations);
         /* cancel reminders belonging to the data being replaced */
         for (const old of invitations) {
           await cancelReminders(old.notifIds);

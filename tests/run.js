@@ -40,6 +40,11 @@ const {
   driveBackupFilename,
   parseDriveBackupName,
   driveBackupsToPrune,
+  driveAutoFilename,
+  parseAutoBackupName,
+  autoBackupsToPrune,
+  beforeRestoreFilename,
+  parseBeforeRestoreName,
   backupSignature,
 } = require('../.testbuild/lib');
 const { buildShareText } = require('../.testbuild/share');
@@ -923,9 +928,10 @@ ok('drive retention keeps exactly 10, prunes the oldest', () => {
   ]);
   // fewer than 10 → nothing pruned
   assert.strictEqual(driveBackupsToPrune(names.slice(0, 5), 10).length, 0);
-  // unparseable names sort oldest (pruned first) so junk can't accumulate
-  const withJunk = ['garbage.json', ...names.slice(0, 10)];
-  assert.deepStrictEqual(driveBackupsToPrune(withJunk, 10), ['garbage.json']);
+  // non-manual names (auto files, junk) are ignored, not pruned — keeps manual
+  // and auto retention independent
+  const withOther = ['garbage.json', 'payat-auto-2026-01.json', ...names.slice(0, 10)];
+  assert.deepStrictEqual(driveBackupsToPrune(withOther, 10), []);
 });
 
 ok('restore path unchanged: parseBackup handles a Drive file exactly like a local one', () => {
@@ -954,6 +960,46 @@ ok('token never appears in an export (no auth material can leak through a backup
     'invitations',
   ]);
   assert.ok(!/token|refresh|client_secret|accessToken|driveEmail|googleusercontent/i.test(payload));
+});
+
+ok('auto filename: one file per calendar month (payat-auto-YYYY-MM.json)', () => {
+  assert.strictEqual(driveAutoFilename(new Date(2026, 7, 5, 19, 30)), 'payat-auto-2026-08.json');
+  assert.strictEqual(driveAutoFilename(new Date(2026, 0, 1, 0, 0)), 'payat-auto-2026-01.json');
+  assert.strictEqual(parseAutoBackupName('payat-auto-2026-08.json'), new Date(2026, 7, 1).getTime());
+  assert.strictEqual(parseAutoBackupName('payat-backup-2026-08-05-1930.json'), null);
+});
+
+ok('auto retention keeps exactly 3 monthly files, prunes oldest', () => {
+  const names = [];
+  for (let m = 1; m <= 6; m++) names.push(`payat-auto-2026-${String(m).padStart(2, '0')}.json`);
+  const prune = autoBackupsToPrune(names, 3);
+  assert.strictEqual(prune.length, 3);
+  assert.deepStrictEqual(prune.sort(), [
+    'payat-auto-2026-01.json',
+    'payat-auto-2026-02.json',
+    'payat-auto-2026-03.json',
+  ]);
+});
+
+ok('retention independence: manual and auto never prune each other', () => {
+  const manual = [];
+  for (let i = 0; i < 12; i++) manual.push(driveBackupFilename(new Date(2026, 0, 1, 8 + i, 0)));
+  const auto = ['payat-auto-2026-01.json', 'payat-auto-2026-02.json', 'payat-auto-2026-03.json', 'payat-auto-2026-04.json'];
+  const mixed = [...manual, ...auto];
+  // manual retention only touches payat-backup-* (drops 2 oldest of 12), never auto
+  const mPrune = driveBackupsToPrune(mixed, 10);
+  assert.strictEqual(mPrune.length, 2);
+  assert.ok(mPrune.every((n) => n.startsWith('payat-backup-')));
+  // auto retention only touches payat-auto-* (drops 1 oldest of 4), never manual
+  const aPrune = autoBackupsToPrune(mixed, 3);
+  assert.deepStrictEqual(aPrune, ['payat-auto-2026-01.json']);
+});
+
+ok('before-restore filename round-trips', () => {
+  const name = beforeRestoreFilename(new Date(2026, 7, 5, 19, 30));
+  assert.strictEqual(name, 'payat-before-restore-2026-08-05-1930.json');
+  assert.strictEqual(parseBeforeRestoreName(name), new Date(2026, 7, 5, 19, 30).getTime());
+  assert.strictEqual(parseBeforeRestoreName('payat-backup-2026-08-05-1930.json'), null);
 });
 
 ok('backupSignature: stable when unchanged, differs when data changes', () => {

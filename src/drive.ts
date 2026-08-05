@@ -1,6 +1,21 @@
 import { Platform } from 'react-native';
-import { driveBackupFilename, driveBackupsToPrune, type Backup, parseBackup } from './lib';
-import { DRIVE_FOLDER_NAME, DRIVE_KEEP, DRIVE_SCOPE, GOOGLE_WEB_CLIENT_ID } from './config/google';
+import {
+  autoBackupsToPrune,
+  driveAutoFilename,
+  driveBackupFilename,
+  driveBackupsToPrune,
+  parseAutoBackupName,
+  parseDriveBackupName,
+  type Backup,
+  parseBackup,
+} from './lib';
+import {
+  DRIVE_AUTO_KEEP,
+  DRIVE_FOLDER_NAME,
+  DRIVE_KEEP,
+  DRIVE_SCOPE,
+  GOOGLE_WEB_CLIENT_ID,
+} from './config/google';
 
 /* Optional Google Drive backup.
 
@@ -170,23 +185,28 @@ async function ensureFolder(token: string, cachedId?: string | null): Promise<st
   return cj.id;
 }
 
-/* Multipart upload of the backup JSON (metadata + media in one request). The
+/* Multipart write of the backup JSON (metadata + media in one request). The
    media part is `json` verbatim; people count rides along in appProperties so
-   the restore list can show it without downloading each file. */
-async function uploadBackup(
+   the restore list can show it without downloading each file.
+
+   fileId omitted → create a new file in `folderId` (POST).
+   fileId given  → update that file in place (PATCH), keeping the same id — used
+   by the monthly auto-backup so it doesn't spawn a file every run. */
+async function writeMultipart(
   token: string,
-  folderId: string,
   json: string,
   filename: string,
-  peopleCount: number
-): Promise<void> {
+  peopleCount: number,
+  folderId: string | null,
+  fileId?: string
+): Promise<string> {
   const boundary = 'payatbook-' + filename;
-  const metadata = {
+  const metadata: Record<string, unknown> = {
     name: filename,
-    parents: [folderId],
     mimeType: 'application/json',
     appProperties: { app: 'payat-book', people: String(peopleCount) },
   };
+  if (!fileId && folderId) metadata.parents = [folderId]; // parents only settable on create
   const body =
     `--${boundary}\r\n` +
     'Content-Type: application/json; charset=UTF-8\r\n\r\n' +
@@ -195,36 +215,64 @@ async function uploadBackup(
     'Content-Type: application/json\r\n\r\n' +
     `${json}\r\n` +
     `--${boundary}--`;
-  await driveFetch(token, `${UPLOAD}/files?uploadType=multipart&fields=id`, {
-    method: 'POST',
+  const url = fileId
+    ? `${UPLOAD}/files/${fileId}?uploadType=multipart&fields=id`
+    : `${UPLOAD}/files?uploadType=multipart&fields=id`;
+  const res = await driveFetch(token, url, {
+    method: fileId ? 'PATCH' : 'POST',
     headers: { 'Content-Type': `multipart/related; boundary=${boundary}` },
     body,
   });
+  return (await res.json()).id;
 }
 
-/* All Payat Book backups in the folder, newest first. */
+/* Raw folder listing of our backup files (both manual and auto). */
+async function listFiles(token: string, folderId: string): Promise<any[]> {
+  const q = encodeURIComponent(`'${folderId}' in parents and trashed=false`);
+  const res = await driveFetch(
+    token,
+    `${DRIVE}/files?q=${q}&spaces=drive&orderBy=modifiedTime desc&fields=files(id,name,createdTime,modifiedTime,appProperties)`
+  );
+  return (await res.json()).files ?? [];
+}
+
+/* Prune a set of files down to the newest `keep` per the given name filter,
+   using the supplied retention function. Best effort. */
+async function prune(
+  token: string,
+  files: any[],
+  toPrune: (names: string[], keep: number) => string[],
+  keep: number
+): Promise<void> {
+  const doomed = new Set(toPrune(files.map((f) => f.name as string), keep));
+  for (const f of files) {
+    if (doomed.has(f.name)) {
+      await driveFetch(token, `${DRIVE}/files/${f.id}`, { method: 'DELETE' }).catch(() => {});
+    }
+  }
+}
+
+/* All Payat Book backups in the folder (manual + monthly auto), newest first. */
 export async function driveList(folderIdHint?: string | null): Promise<DriveBackupItem[]> {
   if (!driveSupported) return [];
   const token = await accessToken();
   const folderId = await ensureFolder(token, folderIdHint);
-  const q = encodeURIComponent(`'${folderId}' in parents and trashed=false and name contains 'payat-backup'`);
-  const res = await driveFetch(
-    token,
-    `${DRIVE}/files?q=${q}&spaces=drive&orderBy=createdTime desc&fields=files(id,name,createdTime,appProperties)`
-  );
-  const j = await res.json();
-  const items: DriveBackupItem[] = (j.files ?? []).map((f: any) => {
-    const m = /^payat-backup-(\d{4})-(\d{2})-(\d{2})-(\d{2})(\d{2})\.json$/.exec(f.name ?? '');
-    const ms = m ? new Date(+m[1], +m[2] - 1, +m[3], +m[4], +m[5]).getTime() : Date.parse(f.createdTime ?? '') || 0;
-    const hhmm = m ? `${m[4]}:${m[5]}` : '';
-    const p = f.appProperties?.people;
-    return { id: f.id, name: f.name, ms, hhmm, people: p == null ? null : Number(p) };
-  });
+  const files = await listFiles(token, folderId);
+  const items: DriveBackupItem[] = files
+    .filter((f) => parseDriveBackupName(f.name) != null || parseAutoBackupName(f.name) != null)
+    .map((f: any) => {
+      const manual = parseDriveBackupName(f.name);
+      const autoMs = parseAutoBackupName(f.name);
+      const ms = manual ? manual.ms : (autoMs ?? (Date.parse(f.modifiedTime ?? f.createdTime ?? '') || 0));
+      const hhmm = manual ? manual.hhmm : '';
+      const p = f.appProperties?.people;
+      return { id: f.id, name: f.name, ms, hhmm, people: p == null ? null : Number(p) };
+    });
   return items.sort((a, b) => b.ms - a.ms);
 }
 
-/* Upload one backup and prune to the newest DRIVE_KEEP. Returns the folder id
-   so the caller can cache it. Throws on any failure. */
+/* Manual "Back up now": create a fresh dated file (payat-backup-…), then prune
+   manual files to the newest DRIVE_KEEP. Auto files are never touched. */
 export async function driveBackup(
   json: string,
   peopleCount: number,
@@ -233,19 +281,34 @@ export async function driveBackup(
   if (!driveSupported) throw new Error('drive-unsupported');
   const token = await accessToken();
   const folderId = await ensureFolder(token, folderIdHint);
-  await uploadBackup(token, folderId, json, driveBackupFilename(new Date()), peopleCount);
-
-  /* prune older backups — best effort, never fail the backup over cleanup */
+  await writeMultipart(token, json, driveBackupFilename(new Date()), peopleCount, folderId);
   try {
-    const q = encodeURIComponent(`'${folderId}' in parents and trashed=false and name contains 'payat-backup'`);
-    const res = await driveFetch(token, `${DRIVE}/files?q=${q}&spaces=drive&fields=files(id,name)`);
-    const files = (await res.json()).files ?? [];
-    const doomed = new Set(driveBackupsToPrune(files.map((f: any) => f.name), DRIVE_KEEP));
-    for (const f of files) {
-      if (doomed.has(f.name)) {
-        await driveFetch(token, `${DRIVE}/files/${f.id}`, { method: 'DELETE' }).catch(() => {});
-      }
-    }
+    const files = await listFiles(token, folderId);
+    await prune(token, files, driveBackupsToPrune, DRIVE_KEEP);
+  } catch {
+    /* retention is opportunistic */
+  }
+  return { folderId };
+}
+
+/* Automatic backup: update THIS month's single file in place (or create it if
+   the month just rolled over), then prune auto files to the newest
+   DRIVE_AUTO_KEEP. Manual files are never touched. */
+export async function driveAutoBackup(
+  json: string,
+  peopleCount: number,
+  folderIdHint?: string | null
+): Promise<{ folderId: string }> {
+  if (!driveSupported) throw new Error('drive-unsupported');
+  const token = await accessToken();
+  const folderId = await ensureFolder(token, folderIdHint);
+  const name = driveAutoFilename(new Date());
+  const files = await listFiles(token, folderId);
+  const existing = files.find((f) => f.name === name);
+  await writeMultipart(token, json, name, peopleCount, folderId, existing?.id);
+  try {
+    const after = existing ? files : await listFiles(token, folderId);
+    await prune(token, after, autoBackupsToPrune, DRIVE_AUTO_KEEP);
   } catch {
     /* retention is opportunistic */
   }

@@ -22,7 +22,7 @@ export function DriveRestoreSheet({
   folderId?: string | null;
   onClose: () => void;
 }) {
-  const { t, tp, restoreAll } = useData();
+  const { t, tp, people, txns, restoreAll } = useData();
   const [loading, setLoading] = React.useState(true);
   const [items, setItems] = React.useState<DriveBackupItem[]>([]);
   const [busy, setBusy] = React.useState(false);
@@ -60,9 +60,14 @@ export function DriveRestoreSheet({
         return;
       }
       const ok = await confirmSheet({
-        message: t('qDriveRestore'),
-        confirmLabel: t('driveRestore'),
-        destructive: false,
+        message: tp('restoreConfirmWarn', {
+          p: people.length,
+          t: txns.length,
+          bp: backup.people.length,
+          bt: backup.txns.length,
+        }),
+        confirmLabel: t('restoreConfirmBtn'),
+        destructive: true,
       });
       if (!ok) return;
       await restoreAll(backup.people, backup.events, backup.txns, backup.invitations);
