@@ -1031,6 +1031,46 @@ ok('foldSearch: chillu spellings, zero-width joiners and case fold to one form',
   assert.deepStrictEqual(searchFilter([{ id: 1, name: atomic }], 'യില്‍', ['name']).map((x) => x.id), [1]);
 });
 
+ok('foldSearch: chillus expand to consonant + virama, conjuncts are left alone', () => {
+  const expand = { 'ൺ': 'ണ്', 'ൻ': 'ന്', 'ർ': 'ര്', 'ൽ': 'ല്', 'ൾ': 'ള്', 'ൿ': 'ക്' };
+  for (const [atomic, seq] of Object.entries(expand)) assert.strictEqual(foldSearch(atomic), seq, atomic);
+  // geminates / conjuncts survive untouched — never rewritten to a chillu
+  for (const w of ['ആവുക്കൽ', 'കല്ലിൽ', 'കുന്നത്ത്', 'വെള്ളയിൽ', 'കണ്ണൻ']) {
+    assert.ok(!/[ൺ-ൿ]/.test(foldSearch(w)), w);
+  }
+  assert.strictEqual(foldSearch('കല്ല'), 'കല്ല');
+  assert.strictEqual(foldSearch('കുന്ന'), 'കുന്ന');
+  assert.strictEqual(foldSearch('വെള്ള'), 'വെള്ള');
+});
+
+ok('regression: a partial query ending inside a geminate still matches', () => {
+  const ppl = [
+    { id: 1, name: 'ആവുക്കൽ നിയാസ്', ref: '' }, // ക്ക
+    { id: 2, name: 'കല്ലിൽ മൂസ', ref: '' }, // ല്ല
+    { id: 3, name: 'കുന്നത്ത് ബഷീർ', ref: '' }, // ന്ന
+    { id: 4, name: 'വെള്ളയിൽ ഹംസ', ref: '' }, // ള്ള
+  ];
+  const ids = (q) => rankMatches(ppl, q).map((p) => p.id);
+  assert.deepStrictEqual(ids('ആവുക'), [1]); // first 4 letters of ആവുക്കൽ
+  assert.deepStrictEqual(ids('ആവുക്'), [1]);
+  assert.deepStrictEqual(ids('ആവുക്ക'), [1]);
+  assert.deepStrictEqual(ids('ആവുക്കൽ'), [1]);
+  // കല / കല് also sit inside ആവുക്കൽ once ൽ is expanded (…ക + ല്) — a contains
+  // match, so it ranks after the name that starts with it
+  assert.deepStrictEqual(ids('കല'), [2, 1]);
+  assert.deepStrictEqual(ids('കല്'), [2, 1]);
+  assert.deepStrictEqual(ids('കല്ലി'), [2]);
+  assert.deepStrictEqual(ids('കുന'), [3]);
+  assert.deepStrictEqual(ids('കുന്ന'), [3]);
+  assert.deepStrictEqual(ids('വെള'), [4]);
+  assert.deepStrictEqual(ids('വെള്ള'), [4]);
+  // same through the plain filter and with the legacy chillu spelling typed
+  assert.deepStrictEqual(searchFilter(ppl, 'ആവുക', ['name']).map((p) => p.id), [1]);
+  assert.deepStrictEqual(ids('ആവുക്കല്‍'), [1]);
+  // a name ending in a chillu is found by its bare consonant too (ൽ → ല്)
+  assert.deepStrictEqual(ids('ആവുക്കല'), [1]);
+});
+
 ok('rankMatches: prefix > word start > contains > other fields; ties keep order', () => {
   const rows = [
     { id: 1, name: 'മാക്കുനി', ref: '' }, // contains കു

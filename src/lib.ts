@@ -472,15 +472,18 @@ export const dayCountLabel = (
 /* ---- v4: search + pagination (pure, shared by SearchableList and the
    hosting screen's sections) ---- */
 
-/* Fold a string for matching: NFC, lowercase, and the two spellings of each
-   Malayalam chillu made one — the legacy consonant + virama + ZWJ sequence
-   becomes the atomic letter — then stray zero-width joiners are dropped. Search,
-   ranking and letter grouping all compare this form, never the raw text. */
-const CHILLU: Record<string, string> = { ണ: 'ൺ', ന: 'ൻ', ര: 'ർ', ല: 'ൽ', ള: 'ൾ', ക: 'ൿ' };
+/* Fold a string for matching: NFC, lowercase, zero-width characters dropped,
+   and every atomic Malayalam chillu EXPANDED to consonant + virama, so both
+   spellings of a chillu (atomic ൽ, or legacy ല + ് + ZWJ) end up as ല്.
+   Expanding is the safe direction: an atomic chillu is always a chillu, while
+   ന് / ല് / ക് may equally be the first half of a conjunct (ന്ന, ല്ല, ക്ക) and
+   must never be collapsed. Search, ranking and letter grouping all compare
+   this form, never the raw text. */
+const CHILLU: Record<string, string> = { ൺ: 'ണ്', ൻ: 'ന്', ർ: 'ര്', ൽ: 'ല്', ൾ: 'ള്', ൿ: 'ക്' };
 export const foldSearch = (s: string): string =>
   String(s ?? '')
     .normalize('NFC')
-    .replace(/([ണനരലളക])\u0d4d\u200d/g, (_, c: string) => CHILLU[c])
+    .replace(/[\u0d7a-\u0d7f]/g, (c) => CHILLU[c])
     .replace(/[\u200b-\u200d\ufeff]/g, '')
     .replace(/\s+/g, ' ')
     .trim()
