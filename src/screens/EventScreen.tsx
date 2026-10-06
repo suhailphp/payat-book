@@ -2,7 +2,7 @@ import React, { useEffect, useState } from 'react';
 import { Pressable, SectionList, StyleSheet, View } from 'react-native';
 import { useNavigation, useRoute, RouteProp } from '@react-navigation/native';
 import { useData } from '../data';
-import { bal, dstr, eventTotal, fmt, pageSlice, Person, searchFilter, Txn } from '../lib';
+import { bal, dstr, eventTotal, fmt, pageSlice, Person, rankMatches, resultLabel, SEARCH_LIMIT, Txn } from '../lib';
 import { C, RADIUS, SHADOW } from '../theme';
 import { KasavuHeader } from '../components/Header';
 import { Avatar, BalChip, Btn, Card, Empty, listCardWrap, MiniAddBtn, Row, SearchInput, SecTitle, StatusChip, Txt } from '../components/UI';
@@ -37,8 +37,11 @@ export function EventScreen() {
   const [shownPending, setShownPending] = useState(INITIAL_LIMIT);
   const [shownPaid, setShownPaid] = useState(INITIAL_LIMIT);
 
-  useEffect(() => setShownPending(INITIAL_LIMIT), [pendingQ]);
-  useEffect(() => setShownPaid(INITIAL_LIMIT), [paidQ]);
+  /* a query is already narrowing — don't hide its matches behind "Show more" */
+  const firstPending = pendingQ.trim() ? SEARCH_LIMIT : INITIAL_LIMIT;
+  const firstPaid = paidQ.trim() ? SEARCH_LIMIT : INITIAL_LIMIT;
+  useEffect(() => setShownPending(firstPending), [firstPending, pendingQ]);
+  useEffect(() => setShownPaid(firstPaid), [firstPaid, paidQ]);
 
   const e = events.find((x) => x.id === eid);
   useEffect(() => {
@@ -59,8 +62,10 @@ export function EventScreen() {
     .filter((p) => bal(txns, p.id) > 0 && !paidIds.has(p.id))
     .sort((a, b) => bal(txns, b.id) - bal(txns, a.id));
 
-  const pendingPage = pageSlice(searchFilter(allPending, pendingQ, ['name']), shownPending);
-  const paidPage = pageSlice(searchFilter(allPaid, paidQ, ['name', 'note']), shownPaid);
+  const foundPending = rankMatches(allPending, pendingQ, ['name', 'ref', 'phone']);
+  const foundPaid = rankMatches(allPaid, paidQ, ['name', 'note']);
+  const pendingPage = pageSlice(foundPending, shownPending);
+  const paidPage = pageSlice(foundPaid, shownPaid);
 
   const toggleStatus = async () => {
     await setEventStatus(eid, open ? 'closed' : 'open');
@@ -131,6 +136,11 @@ export function EventScreen() {
                   placeholder={section.key === 'pending' ? t('searchPeople') : t('searchName')}
                   autoCorrect={false}
                 />
+                {(section.key === 'pending' ? pendingQ : paidQ).trim() ? (
+                  <Txt size={13.5} color={C.inkSoft} num style={{ marginTop: 8 }}>
+                    {resultLabel((section.key === 'pending' ? foundPending : foundPaid).length, t, tp)}
+                  </Txt>
+                ) : null}
               </View>
             ) : null}
           </View>

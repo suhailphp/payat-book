@@ -25,8 +25,9 @@ export function PeopleScreen() {
       <SearchableList
         data={list}
         keyOf={(p) => String(p.id)}
-        searchKeys={['name', 'ref']}
+        searchKeys={['name', 'ref', 'phone']}
         placeholder={t('searchPeople')}
+        letters
         contentContainerStyle={{ padding: 16, paddingTop: 22, paddingBottom: 96 }}
         empty={<Empty title={t('emptyPeopleT')} desc={t('emptyPeopleD')} />}
         renderRow={(p, index, count) => (

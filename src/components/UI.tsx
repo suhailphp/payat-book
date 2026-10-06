@@ -1,6 +1,7 @@
 import React from 'react';
 import {
   Pressable,
+  ScrollView,
   StyleProp,
   StyleSheet,
   Text,
@@ -245,6 +246,46 @@ export function ChipBtn({ label, onPress }: { label: string; onPress: () => void
   );
 }
 
+/* The book's letter tabs: a horizontal strip of index letters built from the
+   data (see letterIndex). Tapping a letter filters to names starting with it;
+   tapping it again — or "All" — clears it. */
+export function LetterStrip({
+  letters,
+  value,
+  onChange,
+  allLabel,
+}: {
+  letters: string[];
+  value: string | null;
+  onChange: (letter: string | null) => void;
+  allLabel: string;
+}) {
+  const chip = (key: string, label: string, active: boolean, onPress: () => void) => (
+    <Pressable
+      key={key}
+      onPress={onPress}
+      accessibilityRole="button"
+      accessibilityState={{ selected: active }}
+      style={[st.letterChip, active && st.letterChipOn]}
+    >
+      <Txt w={700} size={16} color={active ? C.paper : C.greenDeep}>
+        {label}
+      </Txt>
+    </Pressable>
+  );
+  return (
+    <ScrollView
+      horizontal
+      showsHorizontalScrollIndicator={false}
+      keyboardShouldPersistTaps="handled"
+      contentContainerStyle={st.letterStrip}
+    >
+      {chip('*', allLabel, value === null, () => onChange(null))}
+      {letters.map((l) => chip(l, l, value === l, () => onChange(value === l ? null : l)))}
+    </ScrollView>
+  );
+}
+
 /* Segmented card styling for virtualized list rows: each row draws the card's
    side borders; the first/last rows add the rounded top/bottom. Lets FlatList
    rows look like one PWA-style card without a wrapping <Card>. */
@@ -350,6 +391,19 @@ const st = StyleSheet.create({
     gap: 4,
   },
   segBtn: { flex: 1, paddingVertical: 10, borderRadius: 9, alignItems: 'center' },
+  letterStrip: { flexDirection: 'row', alignItems: 'center', gap: 6, paddingRight: 4 },
+  letterChip: {
+    minWidth: 40,
+    height: 38,
+    paddingHorizontal: 11,
+    borderRadius: 999,
+    borderWidth: 1.5,
+    borderColor: C.line,
+    backgroundColor: C.paper,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  letterChipOn: { backgroundColor: C.greenDeep, borderColor: C.greenDeep },
   chipBtn: {
     borderWidth: 1.5,
     borderColor: C.gold,

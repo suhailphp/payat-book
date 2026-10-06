@@ -46,6 +46,12 @@ const {
   beforeRestoreFilename,
   parseBeforeRestoreName,
   backupSignature,
+  foldSearch,
+  rankMatches,
+  baseLetter,
+  letterIndex,
+  findRows,
+  resultLabel,
 } = require('../.testbuild/lib');
 const { buildShareText } = require('../.testbuild/share');
 const { tFor, tpFor, STR } = require('../.testbuild/i18n');
@@ -1008,6 +1014,152 @@ ok('backupSignature: stable when unchanged, differs when data changes', () => {
   assert.strictEqual(a, b); // deterministic, timestamp-independent
   const moreTxns = [...driveTxns, { id: 3, personId: 2, eventId: null, dir: 'in', amount: 500, date: '2026-08-01', note: '' }];
   assert.notStrictEqual(a, backupSignature(drivePeople, driveEvents, moreTxns, driveInv));
+});
+
+/* ---------- Malayalam search: fold, ranking, letter index ---------- */
+
+ok('foldSearch: chillu spellings, zero-width joiners and case fold to one form', () => {
+  const atomic = 'കുനിയിൽ'; // ൽ as the atomic chillu
+  const legacy = 'കുനിയില്‍'; // ല + virama + ZWJ
+  assert.notStrictEqual(atomic, legacy);
+  assert.strictEqual(foldSearch(legacy), foldSearch(atomic));
+  assert.strictEqual(foldSearch('ക‌ല്ലിൽ'), foldSearch('കല്ലിൽ')); // stray ZWNJ
+  assert.strictEqual(foldSearch('കൊ'), foldSearch('കൊ')); // split vowel sign → NFC
+  assert.strictEqual(foldSearch('  Riyas   KP '), 'riyas kp');
+  // a name stored one way is found by typing the other
+  assert.deepStrictEqual(rankMatches([{ id: 1, name: legacy }], 'നിയിൽ').map((x) => x.id), [1]);
+  assert.deepStrictEqual(searchFilter([{ id: 1, name: atomic }], 'യില്‍', ['name']).map((x) => x.id), [1]);
+});
+
+ok('rankMatches: prefix > word start > contains > other fields; ties keep order', () => {
+  const rows = [
+    { id: 1, name: 'മാക്കുനി', ref: '' }, // contains കു
+    { id: 2, name: 'രാജൻ', ref: 'കുന്ന് പേജ്' }, // ref only
+    { id: 3, name: 'വടക്കെ കുനിയിൽ', ref: '' }, // a later word starts with കു
+    { id: 4, name: 'കുനിയിൽ', ref: '' }, // name starts with കു
+    { id: 5, name: 'അബ്ദു', nameAlt: 'കുഞ്ഞബ്ദു', ref: '' }, // nameAlt only
+    { id: 6, name: 'കുഞ്ഞമ്മദ്', ref: '' }, // name starts with കു
+    { id: 7, name: 'ചാലിൽ കുമാരൻ', ref: '' }, // word start
+    { id: 8, name: 'സുമ', ref: '' }, // no match
+  ];
+  assert.deepStrictEqual(rankMatches(rows, 'കു').map((r) => r.id), [4, 6, 3, 7, 1, 2, 5]);
+  assert.strictEqual(rankMatches(rows, ''), rows); // no query → untouched
+  assert.strictEqual(rankMatches(rows, '  '), rows);
+  assert.deepStrictEqual(rankMatches(rows, 'zzz'), []);
+  // phone ranks below a name match too
+  const ph = [
+    { id: 1, name: 'Ravi', phone: '98470 12345', ref: '' },
+    { id: 2, name: '984 Stores', phone: '', ref: '' },
+  ];
+  assert.deepStrictEqual(rankMatches(ph, '984').map((r) => r.id), [2, 1]);
+  // explicit fields: first is the name; a getter works for nested rows
+  const ev = [{ id: 1, title: 'Old wedding' }, { id: 2, title: 'Wedding' }];
+  assert.deepStrictEqual(rankMatches(ev, 'wed', ['title']).map((r) => r.id), [2, 1]);
+  const nested = [{ person: { id: 1, name: 'Suma', ref: 'Riyas page' } }, { person: { id: 2, name: 'Riyas', ref: '' } }];
+  assert.deepStrictEqual(rankMatches(nested, 'RIYAS', (r) => [r.person.name, r.person.ref]).map((r) => r.person.id), [2, 1]);
+});
+
+ok('baseLetter: vowel signs do not split a letter group', () => {
+  for (const name of ['കുനിയിൽ', 'കൊയിലോത്ത്', 'കിഴക്കയിൽ', 'കല്ലിൽ', 'ക്രിസ്റ്റി', 'കൈതക്കൽ']) {
+    assert.strictEqual(baseLetter(name), 'ക', name);
+  }
+  assert.strictEqual(baseLetter('ആവുക്കൽ'), 'ആ'); // independent vowel: its own tab…
+  assert.strictEqual(baseLetter('അബ്ദുള്ള'), 'അ'); // …not folded into അ
+  assert.strictEqual(baseLetter('  പുതിയ വീട്'), 'പ');
+  assert.strictEqual(baseLetter('‍കുനിയിൽ'), 'ക'); // leading zero-width char folded away
+  assert.strictEqual(baseLetter(''), '');
+  assert.strictEqual(baseLetter('ുക'), 'ു'); // malformed: opens on a sign → keeps the cluster
+  assert.deepStrictEqual(
+    letterIndex(['കുനിയിൽ', 'കൊയിലോത്ത്', 'കിഴക്കയിൽ', 'കല്ലിൽ']),
+    ['ക']
+  );
+});
+
+ok('letterIndex: built from the data, Malayalam alphabetical order', () => {
+  const names = ['വടക്കെ', 'പുതിയ', 'മൂസ', 'കുനിയിൽ', 'ആവുക്കൽ', 'അബ്ദു', 'കൊയിലോത്ത്', 'സുമ', 'ചാലിൽ', 'നാണു', 'തെക്കെ', ''];
+  assert.deepStrictEqual(letterIndex(names), ['അ', 'ആ', 'ക', 'ച', 'ത', 'ന', 'പ', 'മ', 'വ', 'സ']);
+  assert.deepStrictEqual(letterIndex([]), []);
+});
+
+ok('letter index, Latin mode: A–Z grouped the same way, case-insensitive', () => {
+  const names = ['riyas', 'Ravi', 'Abdu', 'anil', 'Zubair', 'Moosa', 'Élan'];
+  assert.deepStrictEqual(letterIndex(names), ['A', 'M', 'R', 'Z', 'É']);
+  assert.strictEqual(baseLetter('riyas'), 'R');
+  const ppl = names.map((name, i) => ({ id: i + 1, name, ref: '', phone: '' }));
+  assert.deepStrictEqual(findRows(ppl, '', 'R').map((p) => p.name), ['riyas', 'Ravi']);
+  assert.deepStrictEqual(findRows(ppl, 'ra', 'R').map((p) => p.name), ['Ravi']);
+  // mixed book: Latin tabs first, then Malayalam
+  assert.deepStrictEqual(letterIndex(['കുനിയിൽ', 'Ravi', 'അബ്ദു']), ['R', 'അ', 'ക']);
+});
+
+/* A 447-name book shaped like the real one (same per-letter counts as the
+   spec's table; the names themselves are synthetic): 19 base letters, each
+   name opening on a rotating vowel sign, and most non-ക names carrying a ക
+   somewhere inside — which is what buried the real matches. */
+const BOOK_SHAPE = [
+  ['ക', 125], ['പ', 68], ['മ', 46], ['വ', 32], ['ന', 29], ['ച', 26], ['സ', 22], ['ത', 21], ['അ', 18], ['ആ', 18],
+  ['ര', 8], ['ബ', 7], ['ജ', 6], ['ഹ', 5], ['ഷ', 4], ['ഇ', 4], ['ഉ', 3], ['എ', 3], ['യ', 2],
+];
+const SIGNS = ['', 'ു', 'ൊ', 'ി', 'ാ', 'െ', 'ൂ', 'ോ'];
+const TAILS = ['ണ്ടിയിൽ', 'ക്കൽ', 'ന്നത്ത്', 'ക്കണ്ടി', 'ലിൽ', 'ങ്കര', 'ക്കുനി'];
+const BOOK = [];
+for (const [letter, count] of BOOK_SHAPE) {
+  const vowel = letter < 'ക'; // independent vowels take no sign
+  for (let i = 0; i < count; i++) {
+    const head = letter + (vowel ? '' : SIGNS[i % SIGNS.length]);
+    BOOK.push({ id: BOOK.length + 1, name: `${head}${TAILS[i % TAILS.length]} ${i + 1}`, ref: '', phone: '' });
+  }
+}
+BOOK.sort((a, b) => a.name.localeCompare(b.name));
+
+ok('447-name book: 19 letter tabs, not one per first syllable', () => {
+  assert.strictEqual(BOOK.length, 447);
+  const tabs = letterIndex(BOOK.map((p) => p.name));
+  assert.strictEqual(tabs.length, 19);
+  assert.deepStrictEqual(tabs, BOOK_SHAPE.map(([l]) => l).sort());
+  // grouping by the raw first syllable is what fragments it
+  assert.ok(new Set(BOOK.map((p) => Array.from(p.name).slice(0, 2).join(''))).size > 40);
+  for (const [letter, count] of BOOK_SHAPE) assert.strictEqual(findRows(BOOK, '', letter).length, count, letter);
+});
+
+ok('447-name book: ക tab + typing ക = the 125 names starting with ക, not the buried set', () => {
+  const anywhere = searchFilter(BOOK, 'ക', ['name']);
+  assert.ok(anywhere.length > 300, `substring search returns ${anywhere.length}`);
+  const tabbed = findRows(BOOK, 'ക', 'ക');
+  assert.strictEqual(tabbed.length, 125);
+  assert.ok(tabbed.every((p) => baseLetter(p.name) === 'ക'));
+  // even with no tab, the 125 come first, in the list's own (alphabetical) order
+  const ranked = findRows(BOOK, 'ക', null);
+  assert.strictEqual(ranked.length, anywhere.length);
+  assert.deepStrictEqual(ranked.slice(0, 125), tabbed);
+  assert.ok(ranked.slice(125).every((p) => baseLetter(p.name) !== 'ക'));
+  // narrowing inside the tab: names starting with കു lead, then the ones that
+  // merely contain it — each group still alphabetical
+  const ku = findRows(BOOK, 'കു', 'ക');
+  assert.ok(ku.length > 0 && ku.length < 125);
+  const lead = ku.filter((p) => p.name.startsWith('കു'));
+  assert.ok(lead.length > 0);
+  assert.deepStrictEqual(ku.slice(0, lead.length), lead);
+  const byName = (a, b) => a.name.localeCompare(b.name);
+  assert.deepStrictEqual(lead, [...lead].sort(byName));
+  assert.deepStrictEqual(ku.slice(lead.length), [...ku.slice(lead.length)].sort(byName));
+});
+
+ok('result count: with and without a letter tab; label in both languages', () => {
+  assert.strictEqual(findRows(BOOK, '', null).length, 447);
+  assert.strictEqual(findRows(BOOK, '', 'പ').length, 68);
+  assert.strictEqual(findRows(BOOK, 'പ', 'പ').length, 68);
+  assert.strictEqual(findRows(BOOK, 'zzz', 'പ').length, 0);
+  assert.strictEqual(findRows(BOOK, 'ക', 'യ').length, findRows(BOOK, '', 'യ').filter((p) => p.name.includes('ക')).length);
+  assert.strictEqual(findRows(BOOK, 'ക', null).length, BOOK.filter((p) => p.name.includes('ക')).length);
+  const [en, ml] = ['en', 'ml'].map((l) => (c) => resultLabel(c, tFor(l), tpFor(l)));
+  assert.strictEqual(en(48), '48 results');
+  assert.strictEqual(en(1), '1 result');
+  assert.strictEqual(en(0), '0 results');
+  assert.strictEqual(ml(48), '48 ഫലങ്ങൾ');
+  assert.strictEqual(ml(1), '1 ഫലം');
+  assert.strictEqual(tFor('en')('allLetters'), 'All');
+  assert.strictEqual(tFor('ml')('allLetters'), 'എല്ലാം');
 });
 
 console.log(`\n${n} checks passed`);

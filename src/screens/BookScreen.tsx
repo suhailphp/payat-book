@@ -2,11 +2,20 @@ import React, { useCallback, useMemo, useRef, useState } from 'react';
 import { ActivityIndicator, Animated, Pressable, SectionList, SectionListProps, StyleSheet, View } from 'react-native';
 import { useNavigation } from '@react-navigation/native';
 import { useData } from '../data';
-import { bookRow, dstr, fmt, type BookCell, type BookRow } from '../lib';
+import {
+  bookRow,
+  dstr,
+  findRows,
+  fmt,
+  LETTER_INDEX_MIN,
+  letterIndex,
+  type BookCell,
+  type BookRow,
+} from '../lib';
 import { STR } from '../i18n';
 import { C, FONT } from '../theme';
 import { KasavuHeader } from '../components/Header';
-import { Empty, SearchInput, Txt } from '../components/UI';
+import { Empty, LetterStrip, SearchInput, Txt } from '../components/UI';
 import { CollapseIcon, ExpandIcon, FunnelIcon, SaveIcon } from '../components/Icons';
 import { SettingsSheet } from '../sheets/SettingsSheet';
 import { BookOptionsSheet, type Filter, type Sort } from '../sheets/BookOptionsSheet';
@@ -15,6 +24,9 @@ import { toast } from '../components/Toast';
 import type { RootNav } from '../nav';
 
 const OB_NOTES = [STR.en.obNote, STR.ml.obNote];
+
+/* what a ledger row is searched on: name first, then the secondary fields */
+const rowFields = (r: BookRow) => [r.person.name, r.person.ref, r.person.phone];
 
 /* Column geometry (dp). # + Name are frozen left, Balance frozen right; the five
    entry cells in between share one horizontal offset. */
@@ -165,6 +177,7 @@ export function BookScreen() {
   const [settingsOpen, setSettingsOpen] = useState(false);
   const [optionsOpen, setOptionsOpen] = useState(false);
   const [q, setQ] = useState('');
+  const [picked, setPicked] = useState<string | null>(null);
   const [sort, setSort] = useState<Sort>('name');
   const [filter, setFilter] = useState<Filter>('all');
   const [exporting, setExporting] = useState(false);
@@ -175,19 +188,25 @@ export function BookScreen() {
 
   const allRows = useMemo(() => people.map((p) => bookRow(p, txns, OB_NOTES)), [people, txns]);
 
+  /* the book's letter tabs, built from the names actually in it */
+  const tabs = useMemo(
+    () => (people.length > LETTER_INDEX_MIN ? letterIndex(people.map((p) => p.name)) : []),
+    [people]
+  );
+  const letter = picked !== null && tabs.includes(picked) ? picked : null;
+
   const rows = useMemo(() => {
     let r = allRows;
     if (filter === 'receive') r = r.filter((x) => x.balance > 0);
     else if (filter === 'give') r = r.filter((x) => x.balance < 0);
     else if (filter === 'settled') r = r.filter((x) => x.balance === 0);
-    const needle = q.trim().toLowerCase();
-    if (needle) r = r.filter((x) => `${x.person.name} ${x.person.ref}`.toLowerCase().includes(needle));
     const out = [...r];
     if (sort === 'name') out.sort((a, b) => a.person.name.localeCompare(b.person.name));
     else if (sort === 'balance') out.sort((a, b) => b.balance - a.balance);
     else out.sort((a, b) => (b.lastDate || '').localeCompare(a.lastDate || '') || b.person.id - a.person.id);
-    return out;
-  }, [allRows, filter, q, sort]);
+    /* letter tab, then best match first — the active sort survives within a tier */
+    return findRows(out, q, letter, rowFields);
+  }, [allRows, filter, q, letter, sort]);
 
   const tot = useMemo(() => {
     let recv = 0;
@@ -278,6 +297,11 @@ export function BookScreen() {
           {filtersActive ? <View style={st.dot} /> : null}
         </Pressable>
       </View>
+      {tabs.length ? (
+        <View style={{ marginTop: 8 }}>
+          <LetterStrip letters={tabs} value={letter} onChange={setPicked} allLabel={t('allLetters')} />
+        </View>
+      ) : null}
       <Txt
         size={12.5}
         color={C.inkSoft}
@@ -331,7 +355,7 @@ export function BookScreen() {
           initialNumToRender={14}
           maxToRenderPerBatch={12}
           windowSize={9}
-          ListEmptyComponent={<Empty desc={q.trim() ? t('noMatch') : t('emptyPeopleD')} />}
+          ListEmptyComponent={<Empty desc={q.trim() || letter ? t('noMatch') : t('emptyPeopleD')} />}
         />
 
         {/* invisible horizontal driver over the middle band → shared scrollX.

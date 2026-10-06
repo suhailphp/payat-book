@@ -285,15 +285,15 @@ export const topBalances = (
 
 /* All dir='out' txns newest first, filtered by person name or note. */
 export const filterPayments = (txns: Txn[], people: Person[], q: string): Txn[] => {
-  const needle = q.trim().toLowerCase();
-  const nameOf = new Map(people.map((p) => [p.id, p.name.toLowerCase()]));
+  const needle = foldSearch(q);
+  const nameOf = new Map(people.map((p) => [p.id, foldSearch(p.name)]));
   return txns
     .filter((x) => x.dir === 'out')
     .filter(
       (x) =>
         !needle ||
         (nameOf.get(x.personId) || '').includes(needle) ||
-        (x.note || '').toLowerCase().includes(needle)
+        foldSearch(x.note || '').includes(needle)
     )
     .sort((a, b) => (b.date || '').localeCompare(a.date || '') || b.id - a.id);
 };
@@ -472,17 +472,124 @@ export const dayCountLabel = (
 /* ---- v4: search + pagination (pure, shared by SearchableList and the
    hosting screen's sections) ---- */
 
+/* Fold a string for matching: NFC, lowercase, and the two spellings of each
+   Malayalam chillu made one — the legacy consonant + virama + ZWJ sequence
+   becomes the atomic letter — then stray zero-width joiners are dropped. Search,
+   ranking and letter grouping all compare this form, never the raw text. */
+const CHILLU: Record<string, string> = { ണ: 'ൺ', ന: 'ൻ', ര: 'ർ', ല: 'ൽ', ള: 'ൾ', ക: 'ൿ' };
+export const foldSearch = (s: string): string =>
+  String(s ?? '')
+    .normalize('NFC')
+    .replace(/([ണനരലളക])\u0d4d\u200d/g, (_, c: string) => CHILLU[c])
+    .replace(/[\u200b-\u200d\ufeff]/g, '')
+    .replace(/\s+/g, ' ')
+    .trim()
+    .toLowerCase();
+
 export const searchFilter = <T,>(data: T[], q: string, keys: string[]): T[] => {
-  const needle = q.trim().toLowerCase();
+  const needle = foldSearch(q);
   if (!needle) return data;
   return data.filter((item) =>
-    keys.some((k) =>
-      String((item as Record<string, unknown>)[k] ?? '')
-        .toLowerCase()
-        .includes(needle)
-    )
+    keys.some((k) => foldSearch(String((item as Record<string, unknown>)[k] ?? '')).includes(needle))
   );
 };
+
+/* ---- ranked search + letter index (pure) ---- */
+
+/* Which text a row is searched on: the first value is the NAME (ranked by
+   where the query lands in it), the rest are secondary fields (nameAlt, ref,
+   phone, note…) that only ever rank below a name match. Either a list of
+   property names or a getter for rows that nest their person. */
+export type SearchFields<T> = string[] | ((row: T) => (string | null | undefined)[]);
+
+const fieldsOf = <T,>(row: T, fields: SearchFields<T>): string[] =>
+  (typeof fields === 'function'
+    ? fields(row)
+    : fields.map((k) => (row as Record<string, unknown>)[k] as string | null | undefined)
+  ).map((v) => foldSearch(String(v ?? '')));
+
+const WORD_BREAK = /[\s.,;:()\[\]\/\-–·]+/;
+
+/* 0 name starts with the query · 1 a later word of the name starts with it ·
+   2 name contains it · 3 only a secondary field contains it · -1 no match. */
+const matchTier = (vals: string[], needle: string): number => {
+  const name = vals[0] ?? '';
+  if (name.startsWith(needle)) return 0;
+  if (name.split(WORD_BREAK).some((w) => w.startsWith(needle))) return 1;
+  if (name.includes(needle)) return 2;
+  return vals.slice(1).some((v) => v.includes(needle)) ? 3 : -1;
+};
+
+/* Filter rows to those matching the query and order them best match first.
+   Within a tier the incoming order is kept, so whatever sort the caller
+   already applied (alphabetical, balance, newest…) survives. */
+export const rankMatches = <T,>(
+  rows: T[],
+  q: string,
+  fields: SearchFields<T> = ['name', 'nameAlt', 'ref', 'phone']
+): T[] => {
+  const needle = foldSearch(q);
+  if (!needle) return rows;
+  const tiers: T[][] = [[], [], [], []];
+  for (const row of rows) {
+    const tier = matchTier(fieldsOf(row, fields), needle);
+    if (tier >= 0) tiers[tier].push(row);
+  }
+  return tiers.flat();
+};
+
+/* Malayalam dependent signs: anusvara/visarga, vowel signs, virama, au mark. */
+const ML_SIGN = /[\u0d00-\u0d03\u0d3b\u0d3c\u0d3e-\u0d4d\u0d57\u0d62\u0d63]/;
+
+/* The index letter a name is filed under — its BASE letter, vowel sign
+   ignored, so കു, കൊ, കി and ക all share the ക tab like the paper book. Taken
+   from the folded name; Latin letters are upper-cased (A–Z). A name that
+   (wrongly) opens on a dependent sign keeps that whole cluster instead. */
+export const baseLetter = (name: string): string => {
+  const chars = Array.from(foldSearch(name));
+  if (!chars.length) return '';
+  if (!ML_SIGN.test(chars[0])) return chars[0].toUpperCase();
+  let i = 1;
+  while (i < chars.length && ML_SIGN.test(chars[i])) i++;
+  return chars.slice(0, i).join('');
+};
+
+/* The distinct index letters present in the data, in alphabetical order
+   (code-point order: A–Z, then the Malayalam alphabet അ ആ … ക … ഹ). */
+export const letterIndex = (names: string[]): string[] => {
+  const cp = (s: string) => s.codePointAt(0) ?? 0;
+  return [...new Set(names.map(baseLetter).filter(Boolean))].sort((a, b) => cp(a) - cp(b) || (a < b ? -1 : 1));
+};
+
+/* The letter strip only earns its space on a long list. */
+export const LETTER_INDEX_MIN = 20;
+
+/* Rows 10 at a time normally; 50 once the user is already narrowing. */
+export const SEARCH_LIMIT = 50;
+
+/* One list query: optional letter tab (names STARTING with that base letter),
+   then the ranked text search inside it. The result's length is the count. */
+export const findRows = <T,>(
+  rows: T[],
+  q: string,
+  letter: string | null,
+  fields: SearchFields<T> = ['name', 'nameAlt', 'ref', 'phone']
+): T[] => {
+  const tabbed = letter
+    ? rows.filter((row) => {
+        const v = typeof fields === 'function' ? fields(row)[0] : (row as Record<string, unknown>)[fields[0]];
+        return baseLetter(String(v ?? '')) === letter;
+      })
+    : rows;
+  return rankMatches(tabbed, q, fields);
+};
+
+/* "48 results" / "1 result" */
+export const resultLabel = (
+  n: number,
+  t: (k: string) => string,
+  tp: (k: string, vars: Record<string, string | number>) => string
+): string => (n === 1 ? t('nResult1') : tp('nResults', { n }));
 
 export const pageSlice = <T,>(data: T[], shown: number): { rows: T[]; hasMore: boolean } => ({
   rows: data.slice(0, Math.max(0, shown)),

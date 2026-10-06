@@ -6,8 +6,10 @@ import {
   filterPayments,
   fmt,
   pageSlice,
+  rankMatches,
+  resultLabel,
+  SEARCH_LIMIT,
   pendingInvitations,
-  searchFilter,
   Invitation,
   Txn,
 } from '../lib';
@@ -48,7 +50,8 @@ export function PaymentsScreen() {
   const [invShown, setInvShown] = useState(INV_LIMIT);
   const [permGranted, setPermGranted] = useState(true);
 
-  useEffect(() => setInvShown(INV_LIMIT), [invQ]);
+  const invFirst = invQ.trim() ? SEARCH_LIMIT : INV_LIMIT;
+  useEffect(() => setInvShown(invFirst), [invFirst, invQ]);
   useEffect(() => {
     if (notificationsSupported) getPermissionGranted().then(setPermGranted);
   }, []);
@@ -61,7 +64,8 @@ export function PaymentsScreen() {
   const recent = allPayments.slice(0, 5);
 
   const pending = pendingInvitations(invitations).map((i) => ({ ...i, name: nameOf.get(i.hostId) ?? '' }));
-  const invPage = pageSlice(searchFilter(pending, invQ, ['name', 'note']), invShown);
+  const invFound = rankMatches(pending, invQ, ['name', 'note']);
+  const invPage = pageSlice(invFound, invShown);
 
   const markPaid = async (inv: Invitation) => {
     setInvActionFor(null);
@@ -127,6 +131,11 @@ export function PaymentsScreen() {
             {pending.length > INV_LIMIT ? (
               <View style={{ marginBottom: 10 }}>
                 <SearchInput value={invQ} onChangeText={setInvQ} placeholder={t('searchName')} autoCorrect={false} />
+                {invQ.trim() ? (
+                  <Txt size={13.5} color={C.inkSoft} num style={{ marginTop: 8 }}>
+                    {resultLabel(invFound.length, t, tp)}
+                  </Txt>
+                ) : null}
               </View>
             ) : null}
             {invPage.rows.length ? (
